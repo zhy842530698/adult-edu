@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+*.db
+*.db-journal
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+dist/
+.taro/
+.vite/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Secrets (keep .env.example)
+.env
+*.local.env
+
+# Uploads (keep dir, ignore files)
+uploads/images/*
+uploads/audios/*
+!uploads/images/.gitkeep
+!uploads/audios/.gitkeep
+
+# Claude Code
+.claude/

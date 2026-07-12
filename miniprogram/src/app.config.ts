@@ -1,0 +1,35 @@
+export default defineAppConfig({
+  pages: [
+    'pages/login/index',
+    'pages/onboarding/index',
+    'pages/home/index',
+    'pages/catalog/index',
+    'pages/practice/session',
+    'pages/practice/result',
+    'pages/practice/config',
+    'pages/mock/list',
+    'pages/wrong/index',
+    'pages/favorite/index',
+    'pages/progress/index',
+    'pages/profile/index',
+    'pages/feedback/index',
+  ],
+  window: {
+    backgroundTextStyle: 'light',
+    navigationBarBackgroundColor: '#ffffff',
+    navigationBarTitleText: '成人教育刷题',
+    navigationBarTextStyle: 'black',
+  },
+  tabBar: {
+    color: '#8c8c8c',
+    selectedColor: '#1677ff',
+    backgroundColor: '#ffffff',
+    borderStyle: 'white',
+    list: [
+      { pagePath: 'pages/home/index', text: '首页' },
+      { pagePath: 'pages/catalog/index', text: '题库' },
+      { pagePath: 'pages/wrong/index', text: '错题' },
+      { pagePath: 'pages/profile/index', text: '我的' },
+    ],
+  },
+});
