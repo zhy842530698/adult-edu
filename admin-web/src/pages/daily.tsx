@@ -3,7 +3,8 @@ import {
   Table, Button, Modal, Form, Input, Select, InputNumber, DatePicker, Space, message,
 } from 'antd';
 import dayjs from 'dayjs';
-import { api } from '../../api/client';
+// src/pages/daily.tsx
+import { api } from "../api/client";
 
 export default function DailyPage() {
   const [items, setItems] = useState<any[]>([]);

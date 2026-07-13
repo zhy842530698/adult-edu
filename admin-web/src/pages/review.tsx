@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import {
   Table, Button, Tag, Space, Modal, Input, Form, message,
 } from 'antd';
-import { api } from '../../api/client';
-import { useAuthStore } from '../../store/auth';
+// src/pages/review.tsx
+import { api } from "../api/client";
+import { useAuthStore } from "../store/auth";
 
 export default function ReviewPage() {
   const hasPerm = useAuthStore((s) => s.hasPerm);

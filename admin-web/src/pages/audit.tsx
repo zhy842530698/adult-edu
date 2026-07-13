@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Input, Space, Tag } from 'antd';
-import { api } from '../../api/client';
+// src/pages/audit.tsx
+import { api } from "../api/client";
 
 export default function AuditPage() {
   const [items, setItems] = useState<any[]>([]);

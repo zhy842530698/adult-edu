@@ -36,6 +36,12 @@
     "@types/react": "^18.2.0",
     "@types/webpack-env": "^1.18.0",
     "babel-preset-taro": "3.6.7",
-    "typescript": "^5.1.0"
+    "typescript": "^5.1.0",
+    "webpack": "5.78.0"
+  },
+  "overrides": {
+    "webpack": "5.78.0",
+    "webpackbar": "5.0.2",
+    "enhanced-resolve": "5.9.3"
   }
 }

@@ -1,7 +1,8 @@
-import { defineConfig } from '@tarojs/cli';
+import type { IProjectConfig } from '@tarojs/taro';
 
-export default defineConfig(async (ctx, env) => {
-  return {
+// Taro 3.6.7 CLI 会把 export default 当成函数调用，把命令行参数 merge 进来
+export default function (merge, env: any = {}): IProjectConfig {
+  const base: IProjectConfig = {
     projectName: 'adult-edu',
     date: '2026-7-13',
     designWidth: 750,
@@ -12,7 +13,12 @@ export default defineConfig(async (ctx, env) => {
     defineConstants: {},
     copy: { patterns: [], options: {} },
     framework: 'react',
-    compiler: 'webpack5',
+    compiler: {
+    type: 'webpack5',
+    prebundle: {
+      enable: false,
+    },
+  },
     cache: { enable: false },
     sass: { resource: [] },
     mini: {
@@ -28,4 +34,5 @@ export default defineConfig(async (ctx, env) => {
       devServer: { port: 10086, host: '0.0.0.0', proxy: { '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true } } },
     },
   };
-});
+  return merge({}, base, { _: [] });
+}

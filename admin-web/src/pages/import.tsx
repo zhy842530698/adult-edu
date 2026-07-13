@@ -3,8 +3,9 @@ import {
   Card, Upload, Button, Table, Tag, Space, message, Alert, Typography, Modal,
 } from 'antd';
 import { InboxOutlined, DownloadOutlined } from '@ant-design/icons';
-import { api } from '../../api/client';
-import { useAuthStore } from '../../store/auth';
+// src/pages/import.tsx
+import { api } from "../api/client";
+import { useAuthStore } from "../store/auth";
 
 const { Dragger } = Upload;
 

@@ -16,6 +16,7 @@
     "experimentalDecorators": true,
     "lib": ["DOM", "ESNext"],
     "types": ["@tarojs/taro", "react"],
+    "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
     }
