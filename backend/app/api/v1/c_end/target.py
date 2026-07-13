@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.deps import resolve_user
 from app.models import Exam, User, UserExamTarget
+from app.core.exceptions import NotFound, ValidationFailed
 
 router = APIRouter()
 
@@ -51,7 +52,7 @@ def list_targets(db: Session = Depends(get_db), user: User = Depends(resolve_use
 def upsert_target(payload: TargetIn, db: Session = Depends(get_db), user: User = Depends(resolve_user)):
     """Create or update an exam target. If is_primary=True, demote others."""
     if not db.get(Exam, payload.exam_id):
-        return {"code": "NOT_FOUND", "message": "考试不存在"}
+        raise NotFound("考试不存在")
     existing = db.execute(
         select(UserExamTarget).where(
             UserExamTarget.user_id == user.id, UserExamTarget.exam_id == payload.exam_id
@@ -81,7 +82,7 @@ def upsert_target(payload: TargetIn, db: Session = Depends(get_db), user: User =
 def delete_target(tid: int, db: Session = Depends(get_db), user: User = Depends(resolve_user)):
     t = db.get(UserExamTarget, tid)
     if t is None or t.user_id != user.id:
-        return {"code": "NOT_FOUND", "message": "目标不存在"}
+        raise NotFound("目标不存在")
     db.delete(t)
     db.commit()
     return {"id": tid}
@@ -91,7 +92,7 @@ def delete_target(tid: int, db: Session = Depends(get_db), user: User = Depends(
 def set_daily_target(payload: DailyTargetIn, db: Session = Depends(get_db), user: User = Depends(resolve_user)):
     """Update daily question goal on (optionally scoped) exam target."""
     if payload.count < 1 or payload.count > 200:
-        return {"code": "INVALID_ARG", "message": "每日题量必须在 1-200 之间"}
+        raise ValidationFailed("每日题量必须在 1-200 之间")
     stmt = select(UserExamTarget).where(UserExamTarget.user_id == user.id)
     if payload.exam_id:
         stmt = stmt.where(UserExamTarget.exam_id == payload.exam_id)
@@ -99,7 +100,7 @@ def set_daily_target(payload: DailyTargetIn, db: Session = Depends(get_db), user
         stmt = stmt.where(UserExamTarget.is_primary.is_(True))
     t = db.execute(stmt.limit(1)).scalar_one_or_none()
     if t is None:
-        return {"code": "NO_TARGET", "message": "请先设置目标考试"}
+        raise ValidationFailed("请先设置目标考试", code="NO_TARGET")
     t.daily_question_goal = payload.count
     db.commit()
     return {"id": t.id, "daily_question_goal": t.daily_question_goal}

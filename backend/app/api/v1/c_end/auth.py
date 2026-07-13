@@ -1,4 +1,4 @@
-"""C-end auth: mock WeChat login."""
+"""C-end auth: WeChat code login."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 class WechatLoginReq(BaseModel):
-    code: str = Field(..., description="微信 code 或 'mock-<openid>'")
+    code: str = Field(..., min_length=1, description="wx.login 返回的一次性 code")
     nickname: str | None = None
 
 

@@ -32,9 +32,12 @@ export async function bootstrapFromStorage() {
   if (Array.isArray(tgt)) _targets = tgt;
 }
 
-export async function loginWithMock(openid = 'mock-user-001', nickname = '测试用户') {
+export async function loginWithWechat(nickname?: string) {
+  const loginResult = await Taro.login();
+  if (!loginResult.code) throw new Error('未获取到微信登录凭证，请重试');
   const resp = await api.post<{ token: string; user: UserInfo }>('/auth/wechat/login', {
-    code: `mock-${openid}`, nickname,
+    code: loginResult.code,
+    nickname,
   });
   setToken(resp.token);
   _user = resp.user;
@@ -51,12 +54,8 @@ export function logout() {
 }
 
 export async function loadTargets() {
-  try {
-    const r = await api.get<{ items: ExamTarget[] }>('/user/exam-targets');
-    _targets = r.items || [];
-  } catch {
-    _targets = [];
-  }
+  const r = await api.get<{ items: ExamTarget[] }>('/user/exam-targets');
+  _targets = r.items || [];
   Taro.setStorageSync('user-targets', _targets);
   return _targets;
 }

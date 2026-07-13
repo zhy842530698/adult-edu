@@ -1,6 +1,6 @@
 import Taro from '@tarojs/taro';
 
-const BASE_URL = 'http://127.0.0.1:8000/api/v1';
+const BASE_URL = process.env.TARO_APP_API_BASE || 'http://127.0.0.1:8000/api/v1';
 
 export interface ApiEnvelope<T = any> {
   code?: string;
@@ -43,6 +43,10 @@ async function request<T = any>(
     const data: any = resp.data || {};
     const msg = data.message || data.code || `HTTP ${resp.statusCode}`;
     throw new Error(msg);
+  }
+  const data: any = resp.data || {};
+  if (data.code && data.code !== 'OK' && !data.data) {
+    throw new Error(data.message || data.code);
   }
   return resp.data as T;
 }

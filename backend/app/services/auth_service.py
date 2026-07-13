@@ -1,4 +1,4 @@
-"""Authentication services — admin login + mock WeChat login."""
+"""Authentication services — admin login + WeChat jscode2session."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -67,7 +67,7 @@ def admin_login(
     return token, admin
 
 
-# ---------- WECHAT (mock-first) ----------
+# ---------- WECHAT ----------
 
 def wechat_login(
     db: Session,
@@ -77,43 +77,36 @@ def wechat_login(
     ip: str | None,
     user_agent: str | None,
 ) -> tuple[str, User]:
-    """Mock: if code_or_openid starts with 'mock-' we treat it as openid directly.
-    Otherwise if WECHAT_APPID is configured we call jscode2session.
-    """
-    openid: str
-    if code_or_openid.startswith("mock-"):
-        openid = code_or_openid
-    elif settings.wechat_appid and settings.wechat_secret:
-        # Real WeChat integration — extension point. Keep simple; raise if used without HTTPS.
-        try:
-            resp = httpx.get(
-                "https://api.weixin.qq.com/sns/jscode2session",
-                params={
-                    "appid": settings.wechat_appid,
-                    "secret": settings.wechat_secret,
-                    "js_code": code_or_openid,
-                    "grant_type": "authorization_code",
-                },
-                timeout=5.0,
-            )
-            data = resp.json()
-        except Exception as exc:  # pragma: no cover
-            write_login_log(
-                db, subject_type="USER", subject_id=None, username_or_openid=code_or_openid,
-                success=False, fail_reason="wechat_unreachable", ip=ip, user_agent=user_agent,
-            )
-            raise AuthRequired(f"微信服务不可达：{exc}") from exc
-        if "openid" not in data:
-            write_login_log(
-                db, subject_type="USER", subject_id=None, username_or_openid=code_or_openid,
-                success=False, fail_reason=f"wechat:{data.get('errmsg', 'unknown')}",
-                ip=ip, user_agent=user_agent,
-            )
-            raise AuthRequired("微信登录失败")
-        openid = data["openid"]
-    else:
-        # Unconfigured and not a mock → treat the value as openid (lenient).
-        openid = code_or_openid
+    """Exchange the one-time code returned by wx.login for a stable openid."""
+    if not settings.wechat_appid or not settings.wechat_secret:
+        raise AuthRequired("服务端未配置 WECHAT_APPID/WECHAT_SECRET")
+    try:
+        resp = httpx.get(
+            "https://api.weixin.qq.com/sns/jscode2session",
+            params={
+                "appid": settings.wechat_appid,
+                "secret": settings.wechat_secret,
+                "js_code": code_or_openid,
+                "grant_type": "authorization_code",
+            },
+            timeout=5.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as exc:  # pragma: no cover
+        write_login_log(
+            db, subject_type="USER", subject_id=None, username_or_openid=code_or_openid,
+            success=False, fail_reason="wechat_unreachable", ip=ip, user_agent=user_agent,
+        )
+        raise AuthRequired(f"微信服务不可达：{exc}") from exc
+    if "openid" not in data:
+        write_login_log(
+            db, subject_type="USER", subject_id=None, username_or_openid=code_or_openid,
+            success=False, fail_reason=f"wechat:{data.get('errmsg', 'unknown')}",
+            ip=ip, user_agent=user_agent,
+        )
+        raise AuthRequired(f"微信登录失败：{data.get('errmsg', 'code 无效')}")
+    openid = data["openid"]
 
     user = db.execute(select(User).where(User.openid == openid)).scalar_one_or_none()
     if user is None:

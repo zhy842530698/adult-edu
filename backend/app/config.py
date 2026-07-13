@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     # 当为 true 时允许审核员通过自己最后编辑的题目（默认禁止，符合文档 §6.13）
     review_self_approve_allowed: bool = False
 
-    # 留空走 mock 登录；填写则启用真实 jscode2session
+    # 微信小程序后台的 AppID/AppSecret，用于 jscode2session
     wechat_appid: str = ""
     wechat_secret: str = ""
 

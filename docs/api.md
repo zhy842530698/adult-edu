@@ -15,7 +15,7 @@
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| POST | `/auth/wechat/login` | mock 登录：`code: "mock-<openid>"` |
+| POST | `/auth/wechat/login` | 使用 `wx.login` 返回的 code 登录，后端调用微信 `jscode2session` |
 | GET | `/auth/me` | 当前用户 |
 | GET | `/user/exam-targets` | 我的考试目标 |
 | POST | `/user/exam-targets` | 设置主目标考试 |

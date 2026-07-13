@@ -15,7 +15,7 @@
 1. **SQLite 单文件**：开发体验好，但并发写有限。生产化务必切 PostgreSQL。
 2. **导入任务同步执行**：当前 `import_service` 在请求线程内解析 Excel；大文件会阻塞。生产化建议改 Celery + Redis。
 3. **本地文件存储**：上传的图片 / 音频写到 `backend/uploads/`，FastAPI 直接暴露。生产化切 S3 兼容对象存储 + CDN。
-4. **微信登录 mock**：C 端登录接口接受 `code: "mock-<openid>"`，绕过 jscode2session。生产替换 `app/services/auth_service.wechat_login`。
+4. **微信登录配置**：已接入 `wx.login` 与 `jscode2session`，部署前必须配置与小程序 AppID 匹配的 `WECHAT_APPID`、`WECHAT_SECRET`。
 5. **超管自审默认禁**：`REVIEW_SELF_APPROVE_ALLOWED=false`，需要超管审自己最后编辑的题时设置环境变量为 `true`。
 6. **考试进度接口是占位**：`GET /exams/{id}/progress` 当前返回全 0，留待接入聚合表。
 7. **C 端没拉科目 / 章节的题目量**：UI 仅展示目录结构，题量从后台列表读。
@@ -34,7 +34,7 @@
 
 | 已有 | 扩展方向 |
 |---|---|
-| `POST /auth/wechat/login` | 接入真实 jscode2session + 手机号 + UnionID |
+| `POST /auth/wechat/login` | 已接入真实 jscode2session；手机号与 UnionID 尚未接入 |
 | `POST /practice-sessions` | 增加 AB 测试分组、智能推荐选题 |
 | `POST /question-feedback` | 增加图片 / 视频附件；接入客服 IM |
 | `POST /import-jobs` | 改异步任务队列 + 进度推送 |

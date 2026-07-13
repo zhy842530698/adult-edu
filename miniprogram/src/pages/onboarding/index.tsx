@@ -10,12 +10,13 @@ export default function OnboardingPage() {
   const [picked, setPicked] = useState<number | null>(null);
   const [daily, setDaily] = useState(20);
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get<any>('/exam-catalog').then((r) => {
-      const all = (r.items || []).flatMap((c: any) => c.exams || []);
-      setExams(all);
-    });
+    api.get<any>('/exam-catalog')
+      .then((r) => setExams((r.items || []).flatMap((c: any) => c.exams || [])))
+      .catch((e) => showError(e, '考试列表加载失败'))
+      .finally(() => setLoading(false));
   }, []);
 
   const onSubmit = async () => {
@@ -25,7 +26,8 @@ export default function OnboardingPage() {
       await setPrimaryExam(picked);
       await setDailyTarget(daily);
       await loadTargets();
-      Taro.switchTab({ url: '/pages/home/index' });
+      Taro.showToast({ title: '目标设置成功', icon: 'success' });
+      setTimeout(() => Taro.switchTab({ url: '/pages/home/index' }), 500);
     } catch (e) {
       showError(e, '保存失败');
     } finally {
@@ -43,12 +45,14 @@ export default function OnboardingPage() {
       <View className="card">
         <Text className="title" style={{ fontSize: '30rpx' }}>考试</Text>
         <ScrollView scrollY style={{ maxHeight: '560rpx', marginTop: '16rpx' }}>
+          {loading && <Text className="muted">正在加载考试列表…</Text>}
+          {!loading && exams.length === 0 && <Text className="muted">暂无考试数据，请先在运营后台创建考试或执行种子数据初始化。</Text>}
           {exams.map((e) => (
             <View
               key={e.id}
               onClick={() => setPicked(e.id)}
               className="option"
-              style={picked === e.id ? 'border-color:#1677ff;background:#e6f4ff;' : ''}
+              style={picked === e.id ? { borderColor: '#1677ff', background: '#e6f4ff' } : {}}
             >
               <View className="row-between">
                 <Text style={{ fontWeight: 600 }}>{e.name}</Text>
@@ -72,7 +76,7 @@ export default function OnboardingPage() {
               key={n}
               onClick={() => setDaily(n)}
               className="tag"
-              style={daily === n ? 'background:#1677ff;color:#fff;' : ''}
+              style={daily === n ? { background: '#1677ff', color: '#fff' } : {}}
             >
               {n} 题
             </View>

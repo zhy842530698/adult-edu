@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import Taro from '@tarojs/taro';
+import { useDidShow } from '@tarojs/taro';
 import { api } from '../../api/client';
 import { getTargets } from '../../store/auth';
 import { showError } from '../../utils/format';
@@ -27,10 +28,12 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    // targets from store first, then re-load from server
     setTargets(getTargets() || []);
-    load();
   }, []);
+
+  // Tab pages are cached by WeChat; useEffect does not run again after onboarding.
+  // Refresh whenever the home tab becomes visible so a newly saved target appears.
+  useDidShow(() => { load(); });
 
   const startDaily = async () => {
     if (!dailyTask?.has_task) { Taro.showToast({ title: '今日暂无每日一练', icon: 'none' }); return; }

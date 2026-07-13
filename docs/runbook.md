@@ -51,8 +51,8 @@ UPLOAD_DIR=./uploads
 STATIC_URL_PREFIX=/static
 CORS_ORIGINS=["http://localhost:5173","http://127.0.0.1:5173"]
 REVIEW_SELF_APPROVE_ALLOWED=false
-WECHAT_APPID=
-WECHAT_SECRET=
+WECHAT_APPID=微信小程序AppID
+WECHAT_SECRET=微信小程序AppSecret
 ```
 
 > 生产环境务必修改 `JWT_SECRET`、`ADMIN_DEFAULT_PASSWORD` 并把 `DATABASE_URL` 切换到 PostgreSQL。
@@ -81,15 +81,13 @@ make clean
 
 ## C 端登录（MVP）
 
-微信登录走 mock：用任意 `code: "mock-<openid>"` 即可换取 USER token。
+小程序调用 `wx.login` 获取一次性 code，再请求 `/api/v1/auth/wechat/login`；后端使用
+`WECHAT_APPID`、`WECHAT_SECRET` 调用微信 `jscode2session` 换取 openid。AppID 必须与
+`miniprogram/project.config.json` 中的 `appid` 一致。未配置微信凭据时登录会明确返回 401，
+不会再把 code 或 mock 字符串当作 openid。
 
-```bash
-curl -X POST http://127.0.0.1:8000/api/v1/auth/wechat/login \
-  -H 'Content-Type: application/json' \
-  -d '{"code":"mock-user-001","nickname":"测试"}'
-```
-
-生产替换 `app/services/auth_service.py` 中 `wechat_login` 调用微信 `jscode2session`。
+真机调试时，API 地址不能使用 `127.0.0.1`；设置 `TARO_APP_API_BASE` 为手机可访问的
+HTTPS 后端地址，并在微信公众平台配置 request 合法域名。
 
 ## 常见问题
 

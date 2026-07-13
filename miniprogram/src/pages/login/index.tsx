@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text } from '@tarojs/components';
 import Taro from '@tarojs/taro';
-import { loginWithMock } from '../../store/auth';
+import { loginWithWechat } from '../../store/auth';
 import { showError } from '../../utils/format';
 
 export default function LoginPage() {
@@ -15,7 +15,7 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      await loginWithMock();
+      await loginWithWechat();
       Taro.switchTab({ url: '/pages/home/index' });
     } catch (e) {
       showError(e, '登录失败');
@@ -45,11 +45,8 @@ export default function LoginPage() {
           <Text>我已阅读并同意 <Text style={{ color: '#1677ff' }}>《用户协议》</Text> 与 <Text style={{ color: '#1677ff' }}>《隐私政策》</Text></Text>
         </View>
         <View className="btn-primary" onClick={onLogin} style={{ opacity: loading ? 0.6 : 1 }}>
-          {loading ? '登录中…' : '微信一键登录（mock）'}
+          {loading ? '登录中…' : '微信一键登录'}
         </View>
-        <Text className="tip" style={{ display: 'block', textAlign: 'center', marginTop: '16rpx' }}>
-          MVP 阶段使用 mock 登录；生产替换 wx.login 即可。
-        </Text>
       </View>
     </View>
   );
