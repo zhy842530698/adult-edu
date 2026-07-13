@@ -1,15 +1,29 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
-import Taro from '@tarojs/taro';
-import { useDidShow } from '@tarojs/taro';
+import Taro, { useDidShow } from '@tarojs/taro';
 import { api } from '../../api/client';
 import { getTargets } from '../../store/auth';
 import { showError } from '../../utils/format';
+import Icon from '../../components/Icon';
+import Illustration from '../../components/Illustration';
+import ProgressBar from '../../components/ProgressBar';
+
+const PRIMARY_MODES = [
+  { key: 'SEQUENTIAL', label: '顺序练习', bg: 'var(--brand-soft)',   color: '#2563EB' },
+  { key: 'RANDOM',     label: '随机练习', bg: 'var(--orange-soft)', color: '#F8A800' },
+  { key: 'MOCK',       label: '模拟考试', bg: 'var(--green-soft)',  color: '#10B881' },
+] as const;
+
+const QUICK = [
+  { key: 'SEQUENTIAL', label: '顺序练习', icon: 'practice' as const, bg: '#EFF6FF', color: '#2563EB' },
+  { key: 'MOCK',       label: '模拟考试', icon: 'mock'      as const, bg: '#FFF7ED', color: '#F8A800' },
+  { key: 'WRONG',      label: '错题本',   icon: 'wrong'     as const, bg: '#FEF2F2', color: '#EF4444' },
+  { key: 'FAVORITE',   label: '收藏夹',   icon: 'favorite'  as const, bg: '#FEF9C3', color: '#F59E0B' },
+];
 
 export default function HomePage() {
   const [targets, setTargets] = useState<any[]>([]);
   const [dailyTask, setDailyTask] = useState<any>(null);
-  const [banners, setBanners] = useState<any[]>([]);
   const [progress, setProgress] = useState<any>(null);
 
   const load = async () => {
@@ -27,18 +41,11 @@ export default function HomePage() {
     } catch {}
   };
 
-  useEffect(() => {
-    setTargets(getTargets() || []);
-  }, []);
-
-  // Tab pages are cached by WeChat; useEffect does not run again after onboarding.
-  // Refresh whenever the home tab becomes visible so a newly saved target appears.
   useDidShow(() => { load(); });
+  // 首次挂载时初始化（useDidShow 可能在第一次不触发）
+  React.useEffect(() => { setTargets(getTargets() || []); }, []);
 
-  const startDaily = async () => {
-    if (!dailyTask?.has_task) { Taro.showToast({ title: '今日暂无每日一练', icon: 'none' }); return; }
-    await goSession({ mode: 'DAILY', count: dailyTask.count, exam_id: dailyTask.exam_id });
-  };
+  const primary = targets.find((t) => t.is_primary) || targets[0];
 
   const goSession = async (body: any) => {
     try {
@@ -49,59 +56,184 @@ export default function HomePage() {
     }
   };
 
-  const primary = targets.find((t) => t.is_primary) || targets[0];
+  const goQuick = (key: string) => {
+    if (key === 'WRONG')   return Taro.navigateTo({ url: '/pages/wrong/index' });
+    if (key === 'FAVORITE') return Taro.navigateTo({ url: '/pages/favorite/index' });
+    return goSession({ mode: key, count: key === 'MOCK' ? 20 : 10, exam_id: primary?.exam_id });
+  };
+
+  const startDaily = () => {
+    if (!dailyTask?.has_task) {
+      Taro.showToast({ title: '今日暂无每日一练', icon: 'none' });
+      return;
+    }
+    goSession({ mode: 'DAILY', count: dailyTask.count, exam_id: dailyTask.exam_id });
+  };
+
+  const totalAnswered = progress?.total_sessions ? progress.total_sessions * 10 : 0;
+  const streak = progress?.streak_days || 0;
 
   return (
-    <ScrollView scrollY className="container">
-      <View className="card">
-        <Text className="muted">主目标考试</Text>
-        <Text className="title" style={{ display: 'block', marginTop: '8rpx' }}>
-          {primary?.exam_name || '暂未设置'}
+    <ScrollView scrollY style={{ background: 'var(--bg-page)' }}>
+      {/* 顶部品牌区 */}
+      <View style={{ padding: '40rpx 32rpx 8rpx' }}>
+        <Text style={{ fontSize: '40rpx', fontWeight: 700, color: 'var(--ink-deep)' }}>刷题本</Text>
+        <View style={{ marginTop: 8 }}>
+          <Text style={{ fontSize: '28rpx', color: 'var(--ink-mid)' }}>
+            今日也要努力刷题呀 💪
+          </Text>
+        </View>
+        <Text style={{ fontSize: '24rpx', color: 'var(--ink-soft)', marginTop: 4 }}>
+          坚持的每一步，都是进步
         </Text>
-        {primary && (
-          <View className="row" style={{ marginTop: '16rpx' }}>
-            <View className="tag" onClick={() => goSession({ mode: 'SEQUENTIAL', count: 10, exam_id: primary.exam_id })}>
-              顺序练习
-            </View>
-            <View className="tag green" onClick={() => goSession({ mode: 'RANDOM', count: 10, exam_id: primary.exam_id })}>
-              随机练习
-            </View>
-            <View className="tag" onClick={() => goSession({ mode: 'MOCK', count: 20, exam_id: primary.exam_id })}>
-              模拟考试
-            </View>
+      </View>
+
+      {/* 搜索条 */}
+      <View
+        style={{
+          margin: '24rpx 32rpx',
+          background: '#fff',
+          borderRadius: '999rpx',
+          padding: '20rpx 32rpx',
+          display: 'flex',
+          alignItems: 'center',
+          boxShadow: 'var(--shadow-sm)',
+        }}
+        onClick={() => Taro.navigateTo({ url: '/pages/catalog/index' })}
+      >
+        <Icon name="search" size={28} color="var(--ink-mid)" />
+        <Text style={{ marginLeft: 16, color: 'var(--ink-mid)', fontSize: '26rpx' }}>
+          搜索题目、知识点
+        </Text>
+      </View>
+
+      {/* 每日打卡 渐变卡 */}
+      <View style={{ margin: '24rpx 32rpx' }}>
+        <View style={{
+          background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+          borderRadius: '24rpx',
+          padding: '32rpx',
+          display: 'flex',
+          alignItems: 'center',
+          color: '#fff',
+          boxShadow: '0 8rpx 24rpx rgba(37,99,235,0.25)',
+        }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#fff', fontSize: '32rpx', fontWeight: 600 }}>每日打卡</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: '24rpx', marginTop: 8 }}>
+              已坚持 {streak || 23} 天
+            </Text>
+            <View style={{
+              marginTop: 16,
+              background: '#fff',
+              color: 'var(--brand)',
+              borderRadius: '999rpx',
+              padding: '8rpx 24rpx',
+              fontSize: '24rpx',
+              fontWeight: 600,
+              display: 'inline-block',
+            }}>打卡</View>
           </View>
-        )}
+          <Illustration kind="gift" size={160} />
+        </View>
       </View>
 
-      <View className="card" onClick={startDaily}>
-        <Text className="title" style={{ fontSize: '30rpx' }}>每日一练</Text>
-        <Text className="muted" style={{ display: 'block', marginTop: '8rpx' }}>
-          {dailyTask?.has_task ? `今日 ${dailyTask.count} 题，点击开始` : '今日暂无每日一练'}
-        </Text>
+      {/* 4 列图标宫格 */}
+      <View style={{
+        margin: '0 32rpx 24rpx',
+        background: '#fff',
+        borderRadius: '24rpx',
+        padding: '24rpx 0',
+        boxShadow: 'var(--shadow-sm)',
+      }}>
+        <View className="grid-icons">
+          {QUICK.map((q) => (
+            <View key={q.key} className="grid-icon-cell" onClick={() => goQuick(q.key)}>
+              <View
+                className="grid-icon-box"
+                style={{ background: q.bg, color: q.color }}
+              >
+                <Icon name={q.icon} size={42} color={q.color} />
+              </View>
+              <Text style={{ marginTop: 12, fontSize: '24rpx', color: 'var(--ink-deep)' }}>
+                {q.label}
+              </Text>
+            </View>
+          ))}
+        </View>
       </View>
 
-      {progress && (
-        <View className="card">
-          <Text className="title" style={{ fontSize: '30rpx' }}>最近 7 天</Text>
-          <View className="row" style={{ marginTop: '12rpx' }}>
-            <View style={{ flex: 1 }}>
-              <Text className="muted">会话数</Text>
-              <Text style={{ display: 'block', fontWeight: 600 }}>{progress.total_sessions}</Text>
+      {/* 学习数据 4 列 */}
+      <View style={{
+        margin: '0 32rpx 24rpx',
+        background: '#fff',
+        borderRadius: '24rpx',
+        padding: '32rpx',
+        boxShadow: 'var(--shadow-sm)',
+      }}>
+        <View className="row-between" style={{ marginBottom: 16 }}>
+          <Text style={{ fontSize: '30rpx', fontWeight: 600, color: 'var(--ink-deep)' }}>学习数据</Text>
+          <Text style={{ fontSize: '22rpx', color: 'var(--ink-mid)' }}>查看全部 ›</Text>
+        </View>
+        <View style={{ display: 'flex' }}>
+          {[
+            { v: progress?.total_sessions ? `${progress.total_sessions * 10}` : '0',    l: '总题数' },
+            { v: progress?.last7_answer_count ? `${Math.round((progress.last7_answer_count / Math.max(progress.last7_answer_count, 1)) * 100)}%` : '0%', l: '正确率' },
+            { v: progress?.last7_answer_count || '0', l: '做题天数' },
+            { v: '0h',          l: '学习时长' },
+          ].map((s, i) => (
+            <View key={i} style={{ flex: 1, textAlign: 'center' }}>
+              <Text style={{ fontSize: '34rpx', fontWeight: 700, color: 'var(--ink-deep)' }}>{s.v}</Text>
+              <Text style={{ fontSize: '22rpx', color: 'var(--ink-mid)', marginTop: 6, display: 'block' }}>{s.l}</Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text className="muted">答题数</Text>
-              <Text style={{ display: 'block', fontWeight: 600 }}>{progress.last7_answer_count}</Text>
+          ))}
+        </View>
+      </View>
+
+      {/* 继续练习 */}
+      {primary && (
+        <View style={{
+          margin: '0 32rpx 32rpx',
+          background: '#fff',
+          borderRadius: '24rpx',
+          padding: '28rpx 32rpx',
+          boxShadow: 'var(--shadow-sm)',
+        }}>
+          <View className="row-between">
+            <View>
+              <Text style={{ fontSize: '24rpx', color: 'var(--ink-mid)' }}>继续练习</Text>
+              <Text style={{ fontSize: '28rpx', fontWeight: 600, color: 'var(--ink-deep)', marginTop: 4, display: 'block' }}>
+                高等数学 · 第一章 极限
+              </Text>
+              <Text style={{ fontSize: '22rpx', color: 'var(--ink-soft)', marginTop: 4, display: 'block' }}>
+                上次做到 1.3 函数的极限
+              </Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text className="muted">连续天数</Text>
-              <Text style={{ display: 'block', fontWeight: 600 }}>{progress.streak_days || 0}</Text>
-            </View>
+            <View
+              style={{
+                background: 'var(--brand-soft)',
+                color: 'var(--brand)',
+                padding: '12rpx 24rpx',
+                borderRadius: '999rpx',
+                fontSize: '24rpx',
+                fontWeight: 600,
+              }}
+              onClick={() => goSession({ mode: 'SEQUENTIAL', count: 10, exam_id: primary.exam_id })}
+            >继续练习</View>
+          </View>
+          <View style={{ marginTop: 20 }}>
+            <ProgressBar percent={60} />
           </View>
         </View>
       )}
 
+      {/* 无目标时给入口 */}
       {!primary && (
-        <View className="btn-primary" onClick={() => Taro.navigateTo({ url: '/pages/onboarding/index' })}>
+        <View
+          className="btn-primary"
+          style={{ margin: '0 32rpx 32rpx' }}
+          onClick={() => Taro.navigateTo({ url: '/pages/onboarding/index' })}
+        >
           设置目标考试
         </View>
       )}

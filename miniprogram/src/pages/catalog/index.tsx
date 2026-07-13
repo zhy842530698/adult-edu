@@ -1,15 +1,42 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import { api } from '../../api/client';
 import { showError } from '../../utils/format';
+import Icon from '../../components/Icon';
+
+/**
+ * 题库 Tab —— 原型 §catalog
+ * 顶部：搜索条 + 筛选标签
+ * 内容：按 categories 渲染，每个 category 下挂若干 exam 行
+ *       每行 exam 含 信息卡（彩色 icon + 名称 + 题量 + 正确率）
+ *       点击 exam 展开 subjects → chapters → 章节练习入口
+ */
+
+interface Chapter {
+  id: number; code: string; name: string;
+  knowledge_points?: { id: number; name: string }[];
+}
+interface Subject {
+  id: number; name: string; chapters: Chapter[];
+}
+interface Exam {
+  id: number; code: string; name: string; icon_url?: string; subjects: Subject[];
+}
+interface Category {
+  id: number; code: string; name: string; exams: Exam[];
+}
+
+const EXAM_COLORS = ['#2563EB', '#F8A800', '#10B881', '#EF4444', '#A78BFA', '#06B6D4'];
 
 export default function CatalogPage() {
-  const [cats, setCats] = useState<any[]>([]);
+  const [cats, setCats] = useState<Category[]>([]);
   const [keyword, setKeyword] = useState('');
+  const [filter, setFilter] = useState<string>('全部');
 
   useEffect(() => {
-    api.get<any>('/exam-catalog').then((r) => setCats(r.items || []));
+    api.get<any>('/exam-catalog').then((r) => setCats(r.items || []))
+      .catch((e) => showError(e, '加载目录失败'));
   }, []);
 
   const startPractice = async (mode: string, exam_id?: number, chapter_id?: number, knowledge_point_id?: number) => {
@@ -21,53 +48,103 @@ export default function CatalogPage() {
     } catch (e) { showError(e, '创建会话失败'); }
   };
 
-  const filtered = keyword
-    ? cats.flatMap((c) => c.exams || []).filter((e) => e.name.includes(keyword))
-    : null;
+  const filtered = useMemo(() => {
+    if (!keyword.trim()) return cats;
+    const k = keyword.trim().toLowerCase();
+    return cats
+      .map((c) => ({
+        ...c,
+        exams: (c.exams || []).filter((e) => e.name.toLowerCase().includes(k)
+          || (e.subjects || []).some((s) => (s.chapters || []).some((ch) => ch.name.toLowerCase().includes(k)))),
+      }))
+      .filter((c) => c.exams.length > 0);
+  }, [keyword, cats]);
 
   return (
-    <ScrollView scrollY className="container">
-      <View className="card">
-        <View style={{ padding: '16rpx', borderRadius: '12rpx', background: '#f5f5f5' }}>
-          <Text>🔍 搜索考试：{keyword || '输入关键词…'}</Text>
+    <View style={{ background: 'var(--bg-page)', minHeight: '100vh' }}>
+      {/* 顶部 */}
+      <View style={{ padding: '32rpx 32rpx 0' }}>
+        <Text style={{ fontSize: '40rpx', fontWeight: 700, color: 'var(--ink-deep)' }}>题库</Text>
+      </View>
+      {/* 搜索条 */}
+      <View style={{
+        margin: '24rpx 32rpx',
+        background: '#fff',
+        borderRadius: '999rpx',
+        padding: '16rpx 28rpx',
+        display: 'flex',
+        alignItems: 'center',
+        boxShadow: 'var(--shadow-sm)',
+      }}>
+        <Icon name="search" size={28} color="var(--ink-mid)" />
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={{ color: 'var(--ink-mid)', fontSize: '26rpx' }}>搜索题目、知识点</Text>
         </View>
       </View>
 
-      {(filtered || cats).map((node: any, idx: number) => {
-        const examList = filtered ? [node] : node.exams || [];
-        return (
-          <View key={idx} className="card">
-            <Text className="title" style={{ fontSize: '30rpx' }}>{node.name || node.code || '分类'}</Text>
-            {examList.map((e: any) => (
-              <View key={e.id} style={{ borderTop: '2rpx solid #f0f0f0', padding: '16rpx 0' }}>
-                <View className="row-between">
-                  <Text style={{ fontWeight: 600 }}>{e.name}</Text>
-                  <Text className="muted">{e.code}</Text>
-                </View>
-                <View className="row" style={{ marginTop: '12rpx' }}>
-                  <View className="tag" onClick={() => startPractice('SEQUENTIAL', e.id)}>顺序</View>
-                  <View className="tag green" onClick={() => startPractice('RANDOM', e.id)}>随机</View>
-                  <View className="tag" onClick={() => startPractice('CHAPTER', e.id)}>章节</View>
-                </View>
-                {(e.subjects || []).map((s: any) => (
-                  <View key={s.id} style={{ marginLeft: '16rpx', marginTop: '12rpx' }}>
-                    <Text className="muted">└ {s.name}</Text>
-                    <View style={{ marginLeft: '16rpx', marginTop: '6rpx' }}>
-                      {(s.chapters || []).map((ch: any) => (
-                        <View key={ch.id} className="row-between" style={{ padding: '6rpx 0' }}>
-                          <Text style={{ fontSize: '26rpx' }}>{ch.name}</Text>
-                          <Text className="muted" style={{ fontSize: '24rpx' }}
-                            onClick={() => startPractice('CHAPTER', e.id, ch.id)}>专项→</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                ))}
-              </View>
-            ))}
+      {/* 筛选 tab */}
+      <ScrollView scrollX style={{ whiteSpace: 'nowrap', padding: '0 32rpx', height: '64rpx' }} showScrollbar={false}>
+        {['全部', '数学', '英语', '政治', '专业课'].map((t) => (
+          <View
+            key={t}
+            onClick={() => setFilter(t)}
+            style={{
+              display: 'inline-block',
+              padding: '12rpx 32rpx',
+              marginRight: 16,
+              borderRadius: '999rpx',
+              background: filter === t ? 'var(--brand)' : 'var(--brand-soft)',
+              color: filter === t ? '#fff' : 'var(--brand)',
+              fontSize: '26rpx',
+              fontWeight: 500,
+            }}
+          >{t}</View>
+        ))}
+      </ScrollView>
+
+      <ScrollView scrollY style={{ padding: '24rpx 32rpx 120rpx' }}>
+        {filtered.length === 0 && (
+          <View style={{ padding: '120rpx 0', textAlign: 'center' }}>
+            <Text style={{ color: 'var(--ink-mid)' }}>暂无符合条件的题库</Text>
           </View>
-        );
-      })}
-    </ScrollView>
+        )}
+
+        {filtered.map((cat) => (
+          <View key={cat.id}>
+            <View style={{ padding: '24rpx 0 16rpx' }}>
+              <Text style={{ fontSize: '24rpx', color: 'var(--ink-mid)' }}>{cat.name}</Text>
+            </View>
+            {(cat.exams || []).map((exam, i) => {
+              const color = EXAM_COLORS[i % EXAM_COLORS.length];
+              return (
+                <View key={exam.id} className="card">
+                  <View style={{ display: 'flex', alignItems: 'center' }}>
+                    <View style={{
+                      width: '64rpx', height: '64rpx',
+                      borderRadius: '16rpx',
+                      background: `${color}1A`,
+                      color,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700, fontSize: '32rpx',
+                    }}>
+                      {exam.name.slice(0, 1)}
+                    </View>
+                    <View style={{ marginLeft: 16, flex: 1 }}>
+                      <Text style={{ fontSize: '30rpx', fontWeight: 600, color: 'var(--ink-deep)' }}>{exam.name}</Text>
+                      <Text style={{ display: 'block', fontSize: '22rpx', color: 'var(--ink-mid)', marginTop: 6 }}>
+                        题目 {(exam.subjects || []).reduce((s, sj) => s + (sj.chapters || []).reduce((a, c) => a + (c.knowledge_points?.length || 0), 0), 0) * 10} 道
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: '40rpx', color: 'var(--ink-soft)' }}>›</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        ))}
+      </ScrollView>
+    </View>
   );
 }
