@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -16,9 +17,55 @@ REQUIRED_COLUMNS = [
     "option_a", "option_b", "answer", "analysis", "difficulty", "score",
     "source_name", "license_type",
 ]
+# assets is OPTIONAL — adding it to REQUIRED would break older Excel files.
+OPTIONAL_COLUMNS = ["assets"]
 OPTION_COLUMNS = [f"option_{c.lower()}" for c in "ABCDEFGH"]
 
 SOURCE_TYPE_VALUES = {"PLATFORM_ORIGINAL", "REAL_EXAM", "MOCK", "COMPILATION"}
+
+
+_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
+_AUDIO_EXTS = {".mp3", ".m4a", ".wav", ".ogg", ".mp4", ".aac", ".flac"}
+
+
+def _parse_assets(raw: str) -> list[dict]:
+    """Parse the assets cell into [{asset_type, url}, ...].
+
+    Accepted formats (comma-separated):
+      https://cdn/x.jpg,https://cdn/y.mp3               # auto-detect by ext
+      IMAGE:https://cdn/x.jpg|AUDIO:/static/z.mp3       # pipe also accepted
+      图片:https://..., 音频:...                          # Chinese prefixes
+    Empty / whitespace → [].
+    """
+    if not raw:
+        return []
+    out: list[dict] = []
+    # allow either comma or pipe as separator
+    parts = re.split(r"[,|]", raw)
+    for p in parts:
+        p = p.strip()
+        if not p:
+            continue
+        url = p
+        asset_type: str | None = None
+        # explicit prefix?
+        for prefix, kind in (("IMAGE:", "IMAGE"), ("AUDIO:", "AUDIO"),
+                             ("图片:", "IMAGE"), ("音频:", "AUDIO"), ("语音:", "AUDIO")):
+            if p.upper().startswith(prefix.upper()):
+                asset_type = kind
+                url = p[len(prefix):].strip()
+                break
+        if asset_type is None:
+            ext = "." + url.rsplit(".", 1)[-1].lower() if "." in url.rsplit("/", 1)[-1] else ""
+            if ext in _IMAGE_EXTS:
+                asset_type = "IMAGE"
+            elif ext in _AUDIO_EXTS:
+                asset_type = "AUDIO"
+            else:
+                # unknown — skip but don't error; admins can fix in edit page
+                continue
+        out.append({"asset_type": asset_type, "url": url})
+    return out
 
 
 @dataclass
@@ -143,6 +190,7 @@ def parse_rows(file_bytes: bytes) -> list[RowResult]:
         payload["source_question_no"] = cell("source_question_no") or None
         payload["license_type"] = cell("license_type")
         payload["external_ref"] = cell("external_ref") or None
+        payload["assets"] = _parse_assets(cell("assets"))
         payload["tags"] = [t.strip() for t in (cell("tags") or "").split(",") if t.strip()]
 
         # structured source classification (column is optional — empty falls

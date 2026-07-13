@@ -53,6 +53,18 @@ def _check_perm(db: Session, admin: AdminUser, code: str) -> None:
         raise PermissionDenied(f"缺少权限 {code}")
 
 
+def _asset_counts(qv: QuestionVersion | None) -> dict[str, int] | None:
+    if qv is None:
+        return None
+    out = {"image": 0, "audio": 0}
+    for a in qv.assets or []:
+        if a.asset_type == "IMAGE":
+            out["image"] += 1
+        elif a.asset_type == "AUDIO":
+            out["audio"] += 1
+    return out
+
+
 @router.get("")
 def list_questions(
     db: Session = Depends(get_db),
@@ -179,6 +191,9 @@ def list_questions(
             "tags": q.tags,
             "source_type": latest.source_type if latest else None,
             "real_exam_year": latest.real_exam_year if latest else None,
+            # asset counts — shows a small badge in the list so admins can spot
+            # listening (audio) and reading-with-image questions at a glance
+            "assets_summary": _asset_counts(latest),
         })
     return {"items": items, "total": total_count, "page": page, "page_size": page_size}
 
@@ -206,6 +221,17 @@ def get_question(qid: int, db: Session = Depends(get_db), admin: AdminUser = Dep
     ).scalar_one_or_none()
     target = latest or cur
     options = [{"option_code": o.option_code, "content": o.content} for o in target.options] if target else []
+    assets = [
+        {
+            "id": a.id,
+            "asset_type": a.asset_type,
+            "url": a.url,
+            "file_name": a.file_name,
+            "file_size": a.file_size,
+            "created_at": a.created_at.isoformat() if a.created_at else None,
+        }
+        for a in (target.assets or [])
+    ] if target else []
     return {
         "id": q.id,
         "question_type": q.question_type,
@@ -225,6 +251,7 @@ def get_question(qid: int, db: Session = Depends(get_db), admin: AdminUser = Dep
             "correct_options": json.loads(target.correct_options) if target else [],
             "score": target.score if target else None,
             "options": options,
+            "assets": assets,
             "source_name": target.source_name if target else None,
             "source_year": target.source_year if target else None,
             "source_question_no": target.source_question_no if target else None,

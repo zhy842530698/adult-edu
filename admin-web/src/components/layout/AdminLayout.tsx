@@ -20,7 +20,9 @@ import { useAuthStore } from '../../store/auth';
 
 const { Header, Sider, Content } = Layout;
 
-const MENU = [
+type MenuLeaf = { key: string; label: string; perm?: string };
+type MenuItem = { key: string; icon: React.ReactNode; label: string; perm?: string; children?: MenuLeaf[] };
+const MENU: MenuItem[] = [
   { key: '/dashboard', icon: <DashboardOutlined />, label: '工作台', perm: 'menu.view' },
   { key: 'cat', icon: <AppstoreOutlined />, label: '考试目录', children: [
     { key: '/catalog/categories', label: '考试方向' },
@@ -32,6 +34,7 @@ const MENU = [
   { key: 'q', icon: <BookOutlined />, label: '题库', children: [
     { key: '/questions', label: '题目列表' },
     { key: '/import', label: '批量导入' },
+    { key: '/pdf-tool', label: 'PDF→Excel 工具' },
     { key: '/review', label: '审核中心' },
   ]},
   { key: 'paper', icon: <FileTextOutlined />, label: '试卷', children: [

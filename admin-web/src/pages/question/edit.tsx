@@ -2,17 +2,22 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Form, Input, Select, InputNumber, Button, Card, Space, message, Switch, Divider,
+  Upload, Tag, Image, Empty, Popconfirm, Tooltip,
 } from 'antd';
+import { InboxOutlined, DeleteOutlined, FileImageOutlined, SoundOutlined, EyeOutlined } from '@ant-design/icons';
 import { api } from '../../api/client';
+import { useAuthStore } from '../../store/auth';
 
 const OPTION_CODES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 interface OptionDraft { option_code: string; content: string }
+interface AssetItem { id?: number; asset_type: 'IMAGE' | 'AUDIO'; url: string; file_name?: string; file_size?: number }
 
 export default function QuestionEditPage() {
   const { id } = useParams<{ id?: string }>();
   const nav = useNavigate();
   const [form] = Form.useForm();
+  const hasPerm = useAuthStore((s) => s.hasPerm);
   const [exams, setExams] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [chapters, setChapters] = useState<any[]>([]);
@@ -22,6 +27,8 @@ export default function QuestionEditPage() {
   );
   const [correct, setCorrect] = useState<string[]>([]);
   const [questionType, setQuestionType] = useState<string>('SINGLE_CHOICE');
+  const [assets, setAssets] = useState<AssetItem[]>([]);
+  const [uploadingAsset, setUploadingAsset] = useState<'IMAGE' | 'AUDIO' | null>(null);
 
   useEffect(() => {
     api.get('/admin/exams').then((r) => setExams(r.data.items || []));
@@ -56,6 +63,7 @@ export default function QuestionEditPage() {
         });
         setOptions(d.version.options || []);
         setCorrect(d.version.correct_options || []);
+        setAssets(d.version.assets || []);
       }
     });
   }, [id]);
@@ -89,6 +97,55 @@ export default function QuestionEditPage() {
     }
   };
 
+  // ---- asset upload helpers ----
+  const uploadAsset = async (file: File, kind: 'IMAGE' | 'AUDIO') => {
+    setUploadingAsset(kind);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const url = kind === 'IMAGE' ? '/admin/uploads/images' : '/admin/uploads/audios';
+      const resp = await api.post(url, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setAssets((prev) => [...prev, {
+        asset_type: kind,
+        url: resp.data.url,
+        file_name: resp.data.file_name,
+        file_size: resp.data.file_size,
+      }]);
+      message.success(`${kind === 'IMAGE' ? '图片' : '音频'} 上传成功`);
+    } catch (e: any) {
+      const detail = e?.response?.data?.detail || e?.response?.data?.message || e?.message || '上传失败';
+      message.error(detail);
+    } finally {
+      setUploadingAsset(null);
+    }
+  };
+
+  const removeAsset = (idx: number) => {
+    setAssets(assets.filter((_, i) => i !== idx));
+  };
+
+  // upload props for IMAGE uploader
+  const imgUploadProps = {
+    name: 'file',
+    accept: 'image/*',
+    showUploadList: false,
+    beforeUpload: (file: File) => {
+      uploadAsset(file, 'IMAGE');
+      return false;
+    },
+  };
+  const audioUploadProps = {
+    name: 'file',
+    accept: 'audio/*,video/mp4',
+    showUploadList: false,
+    beforeUpload: (file: File) => {
+      uploadAsset(file, 'AUDIO');
+      return false;
+    },
+  };
+
   const validate = (vals: any) => {
     if (options.some((o) => !o.content.trim())) return '每个选项都必须填写内容';
     const filled = options.filter((o) => o.content.trim());
@@ -106,6 +163,7 @@ export default function QuestionEditPage() {
       ...vals,
       options: options.filter((o) => o.content.trim()),
       correct_options: correct,
+      assets: assets.map((a) => ({ asset_type: a.asset_type, url: a.url, file_name: a.file_name, file_size: a.file_size })),
     };
     if (id) await api.put(`/admin/questions/${id}`, payload);
     else await api.post('/admin/questions', payload);
@@ -147,6 +205,102 @@ export default function QuestionEditPage() {
         <Form.Item name="stem" label="题干" rules={[{ required: true }]}>
           <Input.TextArea rows={3} placeholder="允许受控 HTML" />
         </Form.Item>
+
+        {/* ---- media assets section ---- */}
+        <Divider orientation="left" plain>
+          <Space>
+            <span>媒体资源</span>
+            <Tooltip title="图片（如配图、阅读材料原图）/音频（如听力题音轨）会跟题目一起保存；上传后会出现在导出的 Excel 和 C 端题目中。">
+              <EyeOutlined style={{ color: '#999' }} />
+            </Tooltip>
+          </Space>
+        </Divider>
+        <div style={{ background: '#fafafa', padding: 12, borderRadius: 6, marginBottom: 16 }}>
+          {/* Images */}
+          <div style={{ marginBottom: 16 }}>
+            <Space style={{ marginBottom: 8 }}>
+              <FileImageOutlined />
+              <b>图片</b>
+              <Tag>{assets.filter((a) => a.asset_type === 'IMAGE').length}</Tag>
+            </Space>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+              {assets.filter((a) => a.asset_type === 'IMAGE').map((a, idx) => {
+                const realIdx = assets.indexOf(a);
+                return (
+                  <Card
+                    key={`${a.url}-${idx}`}
+                    size="small"
+                    style={{ width: 180 }}
+                    bodyStyle={{ padding: 8 }}
+                    cover={
+                      <Image
+                        src={a.url}
+                        alt={a.file_name || 'image'}
+                        style={{ objectFit: 'cover', height: 120, width: '100%' }}
+                        fallback="data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAyNCAyNCc+PHJlY3Qgd2lkdGg9JzI0JyBoZWlnaHQ9JzI0JyBmaWxsPScjZmZmJy8+PC9zdmc+"
+                      />
+                    }
+                  >
+                    <div style={{ fontSize: 12, color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {a.file_name || a.url.split('/').pop()}
+                    </div>
+                    <Popconfirm title="删除该图片？" onConfirm={() => removeAsset(realIdx)}>
+                      <Button danger size="small" icon={<DeleteOutlined />} style={{ marginTop: 4 }}>
+                        删除
+                      </Button>
+                    </Popconfirm>
+                  </Card>
+                );
+              })}
+              <Upload.Dragger {...imgUploadProps} disabled={!hasPerm('question.edit') || uploadingAsset !== null} style={{ width: 180, height: 180, padding: 8 }}>
+                {uploadingAsset === 'IMAGE' ? (
+                  <span>上传中…</span>
+                ) : (
+                  <>
+                    <p className="ant-upload-drag-icon" style={{ marginBottom: 4 }}><InboxOutlined /></p>
+                    <p className="ant-upload-text" style={{ fontSize: 12 }}>点击或拖拽上传图片</p>
+                    <p className="ant-upload-hint" style={{ fontSize: 11 }}>jpg/png/gif/webp，≤8MB</p>
+                  </>
+                )}
+              </Upload.Dragger>
+            </div>
+          </div>
+
+          {/* Audios */}
+          <div>
+            <Space style={{ marginBottom: 8 }}>
+              <SoundOutlined />
+              <b>音频</b>
+              <Tag>{assets.filter((a) => a.asset_type === 'AUDIO').length}</Tag>
+            </Space>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {assets.filter((a) => a.asset_type === 'AUDIO').map((a) => {
+                const realIdx = assets.indexOf(a);
+                return (
+                  <Space key={`${a.url}-${realIdx}`} style={{ width: '100%' }}>
+                    <Tag color="purple">AUDIO</Tag>
+                    <audio src={a.url} controls style={{ height: 32, flex: 1, maxWidth: 480 }} />
+                    <span style={{ fontSize: 12, color: '#999', minWidth: 120 }}>
+                      {a.file_name || a.url.split('/').pop()}
+                    </span>
+                    <Popconfirm title="删除该音频？" onConfirm={() => removeAsset(realIdx)}>
+                      <Button danger size="small" icon={<DeleteOutlined />}>删除</Button>
+                    </Popconfirm>
+                  </Space>
+                );
+              })}
+              <Upload {...audioUploadProps} disabled={!hasPerm('question.edit') || uploadingAsset !== null}>
+                <Button icon={<SoundOutlined />} loading={uploadingAsset === 'AUDIO'}>
+                  上传音频 (mp3/m4a/wav/ogg，≤30MB)
+                </Button>
+              </Upload>
+            </div>
+          </div>
+
+          {assets.length === 0 && (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无媒体资源" style={{ marginTop: 8 }} />
+          )}
+        </div>
 
         <Divider orientation="left" plain>选项</Divider>
         {options.map((o, idx) => (
@@ -233,7 +387,9 @@ export default function QuestionEditPage() {
 
         <Form.Item>
           <Space>
-            <Button type="primary" htmlType="submit">保存草稿</Button>
+            <Button type="primary" htmlType="submit" disabled={!hasPerm(id ? 'question.edit' : 'question.create')}>
+              保存草稿
+            </Button>
             <Button onClick={() => nav('/questions')}>取消</Button>
           </Space>
         </Form.Item>

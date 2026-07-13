@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Table, Button, Form, Input, Select, Space, Tag, Popconfirm, InputNumber, message, DatePicker,
+  Table, Button, Form, Input, Select, Space, Tag, Popconfirm, InputNumber, message, DatePicker, Tooltip,
 } from 'antd';
+import { FileImageOutlined, SoundOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { api } from '../../api/client';
 import { useAuthStore } from '../../store/auth';
@@ -223,6 +224,23 @@ export default function QuestionListPage() {
             render: (v) => <Tag color={STATUS_TAG[v] || 'default'}>{v || '-'}</Tag>,
           },
           { title: '标签', dataIndex: 'tags' },
+          {
+            title: '资源', width: 70,
+            render: (_: any, r: any) => {
+              const a = r.assets_summary;
+              if (!a || (!a.image && !a.audio)) return <span style={{ color: '#ccc' }}>-</span>;
+              return (
+                <Space size={4}>
+                  {a.image > 0 && (
+                    <Tooltip title={`${a.image} 张图片`}><Tag color="blue" icon={<FileImageOutlined />}>{a.image}</Tag></Tooltip>
+                  )}
+                  {a.audio > 0 && (
+                    <Tooltip title={`${a.audio} 个音频`}><Tag color="purple" icon={<SoundOutlined />}>{a.audio}</Tag></Tooltip>
+                  )}
+                </Space>
+              );
+            },
+          },
           {
             title: '操作', fixed: 'right' as const, width: 280, render: (_: any, r: any) => (
               <Space size="small">

@@ -13,6 +13,7 @@ import KnowledgePointsPage from './pages/catalog/knowledge-points';
 import QuestionListPage from './pages/question/list';
 import QuestionEditPage from './pages/question/edit';
 import ImportPage from './pages/import';
+import PdfToolPage from './pages/pdf-tool';
 import ReviewPage from './pages/review';
 import PaperListPage from './pages/paper/list';
 import PaperEditPage from './pages/paper/edit';
@@ -65,6 +66,7 @@ export default function App() {
         <Route path="questions/new" element={<QuestionEditPage />} />
         <Route path="questions/:id/edit" element={<QuestionEditPage />} />
         <Route path="import" element={<ImportPage />} />
+        <Route path="pdf-tool" element={<PdfToolPage />} />
         <Route path="review" element={<ReviewPage />} />
         <Route path="papers" element={<PaperListPage />} />
         <Route path="papers/new" element={<PaperEditPage />} />

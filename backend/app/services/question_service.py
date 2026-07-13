@@ -217,6 +217,19 @@ def edit_question(
             db.delete(kp)
         for kp_id in payload.get("knowledge_point_ids") or []:
             db.add(QuestionKnowledgePoint(question_version_id=qv.id, knowledge_point_id=int(kp_id)))
+        # replace assets: drop existing, re-create from payload.assets
+        for a in list(qv.assets):
+            db.delete(a)
+        for asset in payload.get("assets") or []:
+            db.add(
+                QuestionAsset(
+                    question_version_id=qv.id,
+                    asset_type=asset["asset_type"],
+                    url=asset["url"],
+                    file_name=asset.get("file_name"),
+                    file_size=asset.get("file_size"),
+                )
+            )
 
         q.question_type = qt
         q.exam_id = payload["exam_id"]

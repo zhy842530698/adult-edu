@@ -17,7 +17,7 @@ REQUIRED = [
     "option_e", "option_f", "option_g", "option_h", "answer",
     "analysis", "difficulty", "score", "source_name", "source_year",
     "source_question_no", "license_type", "source_type", "real_exam_year",
-    "external_ref", "tags",
+    "external_ref", "assets", "tags",
 ]
 
 
@@ -41,11 +41,18 @@ def main(out_path: str | None = None) -> str:
         "对话中双方围绕预订酒店展开",
         3, 2.0, "CET4-2023-06", 2023, "1-A", "platform-original",
         "REAL_EXAM", 2023,
-        "", "sample,main_idea",
+        "",
+        "/static/audios/cet4-2023-06-q1.mp3",
+        "sample,main_idea",
     ])
     # column widths
     for i, h in enumerate(REQUIRED, start=1):
-        ws.column_dimensions[chr(ord("A") + i - 1)].width = max(14, len(str(h)) + 2)
+        col_letter = ""
+        n = i
+        while n > 0:
+            n, rem = divmod(n - 1, 26)
+            col_letter = chr(ord("A") + rem) + col_letter
+        ws.column_dimensions[col_letter].width = max(14, len(str(h)) + 2)
 
     notes = wb.create_sheet("字段说明")
     notes_rows = [
@@ -67,6 +74,7 @@ def main(out_path: str | None = None) -> str:
         ("source_type", "选填；PLATFORM_ORIGINAL / REAL_EXAM / MOCK / COMPILATION，留空按 PLATFORM_ORIGINAL"),
         ("real_exam_year", "选填；仅 source_type=REAL_EXAM 时填，如 2020"),
         ("external_ref", "选填"),
+        ("assets", "选填；图片/音频 URL，逗号分隔；按扩展名自动判断 IMAGE/AUDIO；可写 'IMAGE:url|AUDIO:url' 显式标注类型"),
         ("tags", "选填；英文逗号分隔"),
     ]
     for row in notes_rows:

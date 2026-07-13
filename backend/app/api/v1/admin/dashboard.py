@@ -13,8 +13,10 @@ from app.models import (
     AdminUser,
     ImportJob,
     PracticeSession,
+    Question,
     QuestionFeedback,
     QuestionReviewRecord,
+    QuestionVersion,
     User,
 )
 
@@ -53,6 +55,29 @@ def summary(db: Session = Depends(get_db), admin: AdminUser = Depends(resolve_ad
         select(func.count()).select_from(QuestionFeedback).where(QuestionFeedback.status.in_(["OPEN", "PROCESSING"]))
     ).scalar() or 0
 
+    # Question stats — derived from each Question's latest_version_no, which is
+    # the canonical "the question's current state" (matches the list page).
+    latest_status = (
+        select(QuestionVersion.status)
+        .where(
+            QuestionVersion.question_id == Question.id,
+            QuestionVersion.version_no == Question.latest_version_no,
+        )
+        .scalar_subquery()
+    )
+    question_total = db.execute(select(func.count(Question.id))).scalar() or 0
+    question_approved = db.execute(
+        select(func.count(Question.id)).where(latest_status == "PUBLISHED")
+    ).scalar() or 0
+    question_pending = db.execute(
+        select(func.count(Question.id)).where(latest_status == "REVIEW_PENDING")
+    ).scalar() or 0
+    question_draft = db.execute(
+        select(func.count(Question.id)).where(latest_status == "DRAFT")
+    ).scalar() or 0
+
+    total_users = db.execute(select(func.count(User.id))).scalar() or 0
+
     # Trend last 7 days
     trend_rows = db.execute(
         select(func.date(PracticeSession.started_at).label("d"), func.count().label("n")).where(
@@ -72,6 +97,15 @@ def summary(db: Session = Depends(get_db), admin: AdminUser = Depends(resolve_ad
             "pending_reviews": pending_reviews,
             "failed_imports": failed_imports,
             "open_feedbacks": open_feedbacks,
+        },
+        "questions": {
+            "total": question_total,
+            "approved": question_approved,   # PUBLISHED
+            "pending": question_pending,     # REVIEW_PENDING (待审核)
+            "draft": question_draft,         # DRAFT
+        },
+        "users": {
+            "total": total_users,
         },
         "trend_7d": trend_7d,
     }

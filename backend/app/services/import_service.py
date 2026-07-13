@@ -16,6 +16,7 @@ from app.models import (
     ImportJobRow,
     KnowledgePoint,
     Question,
+    QuestionAsset,
     QuestionKnowledgePoint,
     QuestionOption,
     QuestionVersion,
@@ -166,6 +167,19 @@ def confirm_import(db: Session, *, job_id: int) -> ImportJob:
             )
         for kp_id in kp_ids:
             db.add(QuestionKnowledgePoint(question_version_id=qv.id, knowledge_point_id=kp_id))
+        # ---- attach assets (images / audio) from the Excel "assets" cell
+        for a in payload.get("assets") or []:
+            url = (a.get("url") or "").strip()
+            if not url:
+                continue
+            db.add(
+                QuestionAsset(
+                    question_version_id=qv.id,
+                    asset_type=a.get("asset_type") or "IMAGE",
+                    url=url,
+                    file_name=url.rsplit("/", 1)[-1][:256] or None,
+                )
+            )
         r.created_question_version_id = qv.id
         created += 1
 
