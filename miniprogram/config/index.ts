@@ -10,7 +10,11 @@ export default function (merge, env: any = {}): IProjectConfig {
     sourceRoot: 'src',
     outputRoot: 'dist',
     plugins: ['@tarojs/plugin-framework-react'],
-    defineConstants: {},
+    defineConstants: {
+      'process.env.TARO_APP_API_BASE': JSON.stringify(
+        process.env.TARO_APP_API_BASE || 'http://127.0.0.1:8000/api/v1',
+      ),
+    },
     copy: { patterns: [], options: {} },
     framework: 'react',
     compiler: {

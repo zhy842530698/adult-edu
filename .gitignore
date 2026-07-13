@@ -36,3 +36,4 @@ uploads/audios/*
 
 # Claude Code
 .claude/
+.backend.pid

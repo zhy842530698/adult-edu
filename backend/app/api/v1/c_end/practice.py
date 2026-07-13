@@ -63,6 +63,19 @@ def create(
     return session_to_dict(db, sess, reveal_answers=sess.mode != "MOCK" or sess.status == "SUBMITTED")
 
 
+@router.get("/daily-task")
+def daily_task(db: Session = Depends(get_db), user: User = Depends(resolve_user)):
+    today = datetime.utcnow().date()
+    cfg = db.execute(
+        select(DailyPracticeConfig).where(DailyPracticeConfig.config_date == today)
+    ).scalar_one_or_none()
+    if cfg is None:
+        # auto-create a default daily task if any exam exists
+        first_exam = db.execute(select(Question).limit(1)).scalar_one_or_none()
+        return {"has_task": False, "message": "今日暂无每日一练"}
+    return {"has_task": True, "config_id": cfg.id, "exam_id": cfg.exam_id, "count": cfg.question_count}
+
+
 @router.get("/{session_id}")
 def get_session(session_id: int, db: Session = Depends(get_db), user: User = Depends(resolve_user)):
     sess = db.get(PracticeSession, session_id)
@@ -158,16 +171,3 @@ def result(session_id: int, db: Session = Depends(get_db), user: User = Depends(
     if sess is None or sess.user_id != user.id:
         return {"code": "NOT_FOUND", "message": "会话不存在"}
     return session_to_dict(db, sess, reveal_answers=True)
-
-
-@router.get("/daily-task")
-def daily_task(db: Session = Depends(get_db), user: User = Depends(resolve_user)):
-    today = datetime.utcnow().date()
-    cfg = db.execute(
-        select(DailyPracticeConfig).where(DailyPracticeConfig.config_date == today)
-    ).scalar_one_or_none()
-    if cfg is None:
-        # auto-create a default daily task if any exam exists
-        first_exam = db.execute(select(Question).limit(1)).scalar_one_or_none()
-        return {"has_task": False, "message": "今日暂无每日一练"}
-    return {"has_task": True, "config_id": cfg.id, "exam_id": cfg.exam_id, "count": cfg.question_count}
