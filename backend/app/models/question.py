@@ -60,6 +60,13 @@ class QuestionVersion(Base):
     source_year: Mapped[Optional[int]] = mapped_column(Integer)
     source_question_no: Mapped[Optional[str]] = mapped_column(String(64))
     license_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Structured source classification. Defaults to "PLATFORM_ORIGINAL" so
+    # legacy rows keep their previous implicit category. real_exam_year is
+    # only meaningful when source_type == "REAL_EXAM".
+    source_type: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="PLATFORM_ORIGINAL"
+    )  # PLATFORM_ORIGINAL / REAL_EXAM / MOCK / COMPILATION
+    real_exam_year: Mapped[Optional[int]] = mapped_column(Integer)
     external_ref: Mapped[Optional[str]] = mapped_column(String(256))
     published_by: Mapped[Optional[int]] = mapped_column(Integer)
     published_at: Mapped[Optional[datetime]] = mapped_column(DateTime)

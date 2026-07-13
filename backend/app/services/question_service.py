@@ -120,6 +120,8 @@ def create_draft(
         source_question_no=payload.get("source_question_no"),
         license_type=payload["license_type"],
         external_ref=payload.get("external_ref"),
+        source_type=payload.get("source_type") or "PLATFORM_ORIGINAL",
+        real_exam_year=payload.get("real_exam_year"),
         created_by=actor_id,
     )
     db.add(qv)
@@ -196,6 +198,8 @@ def edit_question(
         qv.source_question_no = payload.get("source_question_no")
         qv.license_type = payload["license_type"]
         qv.external_ref = payload.get("external_ref")
+        qv.source_type = payload.get("source_type") or qv.source_type or "PLATFORM_ORIGINAL"
+        qv.real_exam_year = payload.get("real_exam_year")
 
         # replace options / kps
         for opt in list(qv.options):
@@ -248,6 +252,8 @@ def edit_question(
         source_question_no=payload.get("source_question_no"),
         license_type=payload["license_type"],
         external_ref=payload.get("external_ref"),
+        source_type=payload.get("source_type") or "PLATFORM_ORIGINAL",
+        real_exam_year=payload.get("real_exam_year"),
         created_by=actor_id,
     )
     db.add(qv)
@@ -290,11 +296,22 @@ def edit_question(
     return qv
 
 
-def submit_for_review(db: Session, *, question_id: int, version_id: int, actor_id: int) -> QuestionReviewRecord:
+def submit_for_review(db: Session, *, question_id: int, version_id: int | None, actor_id: int) -> QuestionReviewRecord:
     q = db.get(Question, question_id)
     if q is None:
         raise NotFound("题目不存在")
-    qv = db.get(QuestionVersion, version_id)
+    if version_id is None:
+        # Caller didn't pin a version — resolve to the latest one. For DRAFT
+        # masters, current_version_id is NULL but latest_version_no always
+        # points at the row that should be reviewed.
+        qv = db.execute(
+            select(QuestionVersion).where(
+                QuestionVersion.question_id == question_id,
+                QuestionVersion.version_no == q.latest_version_no,
+            )
+        ).scalar_one_or_none()
+    else:
+        qv = db.get(QuestionVersion, version_id)
     if qv is None or qv.question_id != question_id:
         raise NotFound("题目版本不存在")
     if qv.status != "DRAFT":

@@ -149,6 +149,8 @@ def confirm_import(db: Session, *, job_id: int) -> ImportJob:
             source_question_no=payload.get("source_question_no"),
             license_type=payload["license_type"],
             external_ref=payload.get("external_ref"),
+            source_type=payload.get("source_type") or "PLATFORM_ORIGINAL",
+            real_exam_year=payload.get("real_exam_year"),
             created_by=job.uploaded_by,
         )
         db.add(qv)

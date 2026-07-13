@@ -47,7 +47,12 @@ export default function QuestionEditPage() {
           analysis: d.version.analysis,
           score: d.version.score,
           source_name: d.version.source_name,
+          source_year: d.version.source_year,
+          source_question_no: d.version.source_question_no,
           license_type: d.version.license_type,
+          external_ref: d.version.external_ref,
+          source_type: d.version.source_type || 'PLATFORM_ORIGINAL',
+          real_exam_year: d.version.real_exam_year,
         });
         setOptions(d.version.options || []);
         setCorrect(d.version.correct_options || []);
@@ -111,7 +116,7 @@ export default function QuestionEditPage() {
   return (
     <Card title={id ? `编辑题目 #${id}` : '新增题目'} extra={<a onClick={() => nav('/questions')}>返回列表</a>}>
       <Form form={form} layout="vertical" onFinish={onSubmit}
-        initialValues={{ question_type: 'SINGLE_CHOICE', difficulty: 3, score: 2 }}>
+        initialValues={{ question_type: 'SINGLE_CHOICE', difficulty: 3, score: 2, source_type: 'PLATFORM_ORIGINAL' }}>
         <Space size="large" wrap>
           <Form.Item name="question_type" label="题型" rules={[{ required: true }]}>
             <Select onChange={onTypeChange} options={[
@@ -174,6 +179,38 @@ export default function QuestionEditPage() {
 
         <Divider orientation="left" plain>来源</Divider>
         <Space size="large" wrap>
+          <Form.Item name="source_type" label="来源类型" rules={[{ required: true }]}>
+            <Select
+              style={{ width: 160 }}
+              onChange={(v) => {
+                if (v !== 'REAL_EXAM') {
+                  form.setFieldValue('real_exam_year', undefined);
+                }
+              }}
+              options={[
+                { label: '平台原创', value: 'PLATFORM_ORIGINAL' },
+                { label: '真题', value: 'REAL_EXAM' },
+                { label: '模拟题', value: 'MOCK' },
+                { label: '资料汇编', value: 'COMPILATION' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item
+            noStyle
+            shouldUpdate={(prev, cur) => prev?.source_type !== cur?.source_type}
+          >
+            {({ getFieldValue }) =>
+              getFieldValue('source_type') === 'REAL_EXAM' ? (
+                <Form.Item
+                  name="real_exam_year"
+                  label="真题年份"
+                  rules={[{ required: true, message: '真题必须填年份' }]}
+                >
+                  <InputNumber min={1900} max={2100} placeholder="如 2020" style={{ width: 140 }} />
+                </Form.Item>
+              ) : null
+            }
+          </Form.Item>
           <Form.Item name="source_name" label="来源名称" rules={[{ required: true }]}>
             <Input placeholder="如 CET4-2023-06 / 平台原创" style={{ width: 220 }} />
           </Form.Item>

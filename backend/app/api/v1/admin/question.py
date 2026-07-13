@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import NotFound, PermissionDenied
+from app.core.exceptions import Conflict, NotFound, PermissionDenied
 from app.database import get_db
 from app.deps import resolve_admin
 from app.models import AdminUser, Question, QuestionOption, QuestionVersion
@@ -41,6 +42,8 @@ class QuestionIn(BaseModel):
     source_question_no: str | None = None
     license_type: str
     external_ref: str | None = None
+    source_type: str = "PLATFORM_ORIGINAL"
+    real_exam_year: int | None = None
     knowledge_point_ids: list[int] | None = None
     assets: list[dict] | None = None
 
@@ -61,38 +64,100 @@ def list_questions(
     difficulty: int | None = None,
     status: str | None = None,
     keyword: str | None = None,
-    page: int = 1,
-    page_size: int = 20,
+    source_type: str | None = Query(None, description="PLATFORM_ORIGINAL / REAL_EXAM / MOCK / COMPILATION"),
+    created_from: date | None = Query(None, description="题目最新版本创建时间下界 (含)"),
+    created_to: date | None = Query(None, description="题目最新版本创建时间上界 (含)"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
 ):
     _check_perm(db, admin, "question.query")
-    stmt = select(Question).order_by(Question.id.desc())
-    if exam_id:
-        stmt = stmt.where(Question.exam_id == exam_id)
-    if subject_id:
-        stmt = stmt.where(Question.subject_id == subject_id)
-    if chapter_id:
-        stmt = stmt.where(Question.chapter_id == chapter_id)
-    if question_type:
-        stmt = stmt.where(Question.question_type == question_type)
-    if difficulty:
-        stmt = stmt.where(Question.difficulty == difficulty)
-    if keyword:
-        # search in question_versions via stem
-        qv_ids = {
-            r[0] for r in db.execute(
-                select(QuestionVersion.id).where(QuestionVersion.stem.contains(keyword))
-            ).all()
-        }
-        if qv_ids:
-            stmt = stmt.where(or_(Question.id.in_(qv_ids), Question.tags.contains(keyword)))
-        else:
-            stmt = stmt.where(Question.tags.contains(keyword))
 
-    total = db.execute(select(Question).where(*stmt.whereclause.children) if stmt.whereclause is not None else select(Question)).all()
-    total_count = len(total)
-    rows = list(db.execute(stmt.offset((page - 1) * page_size).limit(page_size)).scalars())
-    # Filter by version status if requested (post-filter for simplicity)
-    items = []
+    # Build base WHERE on Question (catalog + difficulty + keyword).
+    base_filters = []
+    if exam_id:
+        base_filters.append(Question.exam_id == exam_id)
+    if subject_id:
+        base_filters.append(Question.subject_id == subject_id)
+    if chapter_id:
+        base_filters.append(Question.chapter_id == chapter_id)
+    if question_type:
+        base_filters.append(Question.question_type == question_type)
+    if difficulty:
+        base_filters.append(Question.difficulty == difficulty)
+    if keyword:
+        # A question matches if any of its versions' stem contains the keyword
+        # OR its tags contains the keyword. We resolve stem matches via a subquery.
+        stem_q = select(QuestionVersion.question_id).where(QuestionVersion.stem.contains(keyword))
+        base_filters.append(or_(Question.id.in_(stem_q), Question.tags.contains(keyword)))
+
+    if source_type:
+        # Filter by the latest version's source_type (structured classification
+        # such as REAL_EXAM / MOCK). Lives on QuestionVersion, not on Question.
+        latest_source_type = (
+            select(QuestionVersion.source_type)
+            .where(
+                QuestionVersion.question_id == Question.id,
+                QuestionVersion.version_no == Question.latest_version_no,
+            )
+            .scalar_subquery()
+        )
+        base_filters.append(latest_source_type == source_type)
+
+    if created_from or created_to:
+        # Filter by the question's latest version created_at — i.e. when the
+        # question was last (re)created. This is the closest "submission time"
+        # for a Question master, since Question itself only has updated_at.
+        latest_created_at = (
+            select(QuestionVersion.created_at)
+            .where(
+                QuestionVersion.question_id == Question.id,
+                QuestionVersion.version_no == Question.latest_version_no,
+            )
+            .scalar_subquery()
+        )
+        if created_from:
+            base_filters.append(latest_created_at >= created_from)
+        if created_to:
+            # inclusive end-of-day: bump to next day's 00:00 and use <.
+            from datetime import timedelta
+            base_filters.append(latest_created_at < (created_to + timedelta(days=1)))
+
+    # status is a runtime-derived field (current_version_id when published,
+    # otherwise the row keyed by latest_version_no). We resolve it via a
+    # subquery and feed it into both the count and the items query so the
+    # two stay in lock-step.
+    effective_version_status = (
+        select(QuestionVersion.status)
+        .where(
+            QuestionVersion.question_id == Question.id,
+            QuestionVersion.version_no == Question.latest_version_no,
+        )
+        .scalar_subquery()
+    )
+
+    rows_stmt = select(Question).where(*base_filters).order_by(Question.id.desc())
+    total_stmt = select(func.count(Question.id)).where(*base_filters)
+
+    if status:
+        # If there's a current_version_id, that takes precedence over the
+        # "latest" fallback we just computed — mirror the Python branch below.
+        cur_status = (
+            select(QuestionVersion.status)
+            .where(QuestionVersion.id == Question.current_version_id)
+            .scalar_subquery()
+        )
+        status_expr = func.coalesce(cur_status, effective_version_status)
+        rows_stmt = rows_stmt.where(status_expr == status)
+        total_stmt = total_stmt.where(status_expr == status)
+
+    total_count = db.execute(total_stmt).scalar_one()
+    rows = list(
+        db.execute(
+            rows_stmt.offset((page - 1) * page_size).limit(page_size)
+        ).scalars()
+    )
+
+    items: list[dict] = []
     for q in rows:
         cur = db.get(QuestionVersion, q.current_version_id) if q.current_version_id else None
         latest = db.execute(
@@ -101,9 +166,7 @@ def list_questions(
                 QuestionVersion.version_no == q.latest_version_no,
             )
         ).scalar_one_or_none()
-        ver_status = (latest.status if latest else None) or (cur.status if cur else None)
-        if status and ver_status != status:
-            continue
+        ver_status = (cur.status if cur else None) or (latest.status if latest else None)
         items.append({
             "id": q.id,
             "question_type": q.question_type,
@@ -114,6 +177,8 @@ def list_questions(
             "latest_version_no": q.latest_version_no,
             "version_status": ver_status,
             "tags": q.tags,
+            "source_type": latest.source_type if latest else None,
+            "real_exam_year": latest.real_exam_year if latest else None,
         })
     return {"items": items, "total": total_count, "page": page, "page_size": page_size}
 
@@ -161,7 +226,11 @@ def get_question(qid: int, db: Session = Depends(get_db), admin: AdminUser = Dep
             "score": target.score if target else None,
             "options": options,
             "source_name": target.source_name if target else None,
+            "source_year": target.source_year if target else None,
+            "source_question_no": target.source_question_no if target else None,
             "license_type": target.license_type if target else None,
+            "source_type": target.source_type if target else None,
+            "real_exam_year": target.real_exam_year if target else None,
         } if target else None,
     }
 
@@ -189,8 +258,55 @@ def delete(qid: int, db: Session = Depends(get_db), admin: AdminUser = Depends(r
     return {"id": qid}
 
 
+@router.post("/batch/submit-review")
+def batch_submit_review(
+    payload: dict,
+    db: Session = Depends(get_db),
+    admin: AdminUser = Depends(resolve_admin),
+):
+    """Bulk submit latest DRAFT versions of multiple questions for review.
+
+    payload: {"ids": [1, 2, 3]}
+    Returns per-id results so the UI can show partial-failure clearly.
+    """
+    _check_perm(db, admin, "question.submit_review")
+    ids = payload.get("ids") or []
+    results: list[dict] = []
+    for raw in ids:
+        try:
+            qid = int(raw)
+        except (TypeError, ValueError):
+            results.append({"id": raw, "status": "error", "reason": "id 非法"})
+            continue
+        try:
+            rec = submit_for_review(db, question_id=qid, version_id=None, actor_id=admin.id)
+        except NotFound as exc:
+            results.append({"id": qid, "status": "error", "reason": str(exc)})
+            continue
+        except Conflict as exc:
+            results.append({"id": qid, "status": "skipped", "reason": str(exc)})
+            continue
+        write_audit(
+            db,
+            admin_user_id=admin.id,
+            action="question.submit_review",
+            target_type="Question",
+            target_id=str(qid),
+            after={"review_id": rec.id, "batch": True},
+        )
+        results.append({"id": qid, "status": "submitted", "review_id": rec.id})
+    return {"results": results}
+
+
 @router.post("/{qid}/submit-review")
-def submit_review(qid: int, version_id: int = Query(...), db: Session = Depends(get_db), admin: AdminUser = Depends(resolve_admin)):
+def submit_review(
+    qid: int,
+    version_id: int | None = Query(
+        None, description="题目版本 id；省略时按 latest_version_no 自动解析"
+    ),
+    db: Session = Depends(get_db),
+    admin: AdminUser = Depends(resolve_admin),
+):
     _check_perm(db, admin, "question.submit_review")
     rec = submit_for_review(db, question_id=qid, version_id=version_id, actor_id=admin.id)
     write_audit(db, admin_user_id=admin.id, action="question.submit_review", target_type="Question", target_id=str(qid), after={"review_id": rec.id})

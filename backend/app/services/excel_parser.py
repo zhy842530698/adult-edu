@@ -18,6 +18,8 @@ REQUIRED_COLUMNS = [
 ]
 OPTION_COLUMNS = [f"option_{c.lower()}" for c in "ABCDEFGH"]
 
+SOURCE_TYPE_VALUES = {"PLATFORM_ORIGINAL", "REAL_EXAM", "MOCK", "COMPILATION"}
+
 
 @dataclass
 class RowResult:
@@ -142,6 +144,26 @@ def parse_rows(file_bytes: bytes) -> list[RowResult]:
         payload["license_type"] = cell("license_type")
         payload["external_ref"] = cell("external_ref") or None
         payload["tags"] = [t.strip() for t in (cell("tags") or "").split(",") if t.strip()]
+
+        # structured source classification (column is optional — empty falls
+        # back to PLATFORM_ORIGINAL)
+        st = cell("source_type").upper()
+        if st and st not in SOURCE_TYPE_VALUES:
+            errors.append(
+                f"source_type 必须是 {sorted(SOURCE_TYPE_VALUES)} 之一（当前：{st or '空'}）"
+            )
+        payload["source_type"] = st or "PLATFORM_ORIGINAL"
+        rey = cell("real_exam_year")
+        if rey:
+            try:
+                payload["real_exam_year"] = int(rey)
+            except ValueError:
+                errors.append("real_exam_year 必须是整数年份")
+                payload["real_exam_year"] = None
+        else:
+            payload["real_exam_year"] = None
+        if payload["source_type"] == "REAL_EXAM" and not payload["real_exam_year"]:
+            errors.append("source_type=REAL_EXAM 必须填 real_exam_year")
 
         if not payload["source_name"]:
             errors.append("source_name 不能为空")

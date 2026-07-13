@@ -4,7 +4,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -18,6 +19,44 @@ from app.services.import_service import confirm_import, create_import_job
 from app.services.rbac import has_permission
 
 router = APIRouter()
+
+
+@router.get("")
+def list_jobs(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    status: str | None = None,
+    db: Session = Depends(get_db),
+    admin: AdminUser = Depends(resolve_admin),
+):
+    if not has_permission(db, admin.id, "question.query"):
+        raise PermissionDenied()
+    stmt = select(ImportJob).order_by(ImportJob.id.desc())
+    if status:
+        stmt = stmt.where(ImportJob.status == status)
+    total = db.execute(select(func.count(ImportJob.id)).where(*stmt.whereclause.children) if stmt.whereclause is not None else select(func.count(ImportJob.id))).scalar_one()
+    rows = list(
+        db.execute(stmt.offset((page - 1) * page_size).limit(page_size)).scalars()
+    )
+    return {
+        "items": [
+            {
+                "id": j.id,
+                "filename": j.filename,
+                "status": j.status,
+                "total_rows": j.total_rows,
+                "ok_rows": j.ok_rows,
+                "warn_rows": j.warn_rows,
+                "error_rows": j.error_rows,
+                "confirmed_question_count": j.confirmed_question_count,
+                "created_at": j.created_at.isoformat() if j.created_at else None,
+            }
+            for j in rows
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @router.post("")

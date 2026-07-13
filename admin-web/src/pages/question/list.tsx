@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Table, Button, Form, Input, Select, Space, Tag, Popconfirm, InputNumber, message,
+  Table, Button, Form, Input, Select, Space, Tag, Popconfirm, InputNumber, message, DatePicker,
 } from 'antd';
+import dayjs from 'dayjs';
 import { api } from '../../api/client';
 import { useAuthStore } from '../../store/auth';
 
@@ -14,6 +15,28 @@ const STATUS_TAG: Record<string, string> = {
   REJECTED: 'error',
 };
 
+const SOURCE_TYPE_LABEL: Record<string, string> = {
+  PLATFORM_ORIGINAL: '平台原创',
+  REAL_EXAM: '真题',
+  MOCK: '模拟题',
+  COMPILATION: '资料汇编',
+};
+
+const SOURCE_TYPE_TAG_COLOR: Record<string, string> = {
+  PLATFORM_ORIGINAL: 'default',
+  REAL_EXAM: 'green',
+  MOCK: 'blue',
+  COMPILATION: 'orange',
+};
+
+function SourceBadge({ source_type, real_exam_year }: { source_type?: string | null; real_exam_year?: number | null }) {
+  if (!source_type) return <span style={{ color: '#999' }}>-</span>;
+  if (source_type === 'REAL_EXAM' && real_exam_year) {
+    return <Tag color="green">{real_exam_year}年 真题</Tag>;
+  }
+  return <Tag color={SOURCE_TYPE_TAG_COLOR[source_type] || 'default'}>{SOURCE_TYPE_LABEL[source_type] || source_type}</Tag>;
+}
+
 export default function QuestionListPage() {
   const nav = useNavigate();
   const hasPerm = useAuthStore((s) => s.hasPerm);
@@ -24,7 +47,22 @@ export default function QuestionListPage() {
   const [chapters, setChapters] = useState<any[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
   const [filters, setFilters] = useState<any>({ page: 1, page_size: 20 });
+  const [createdRange, setCreatedRange] = useState<[any, any] | null>(null);
   const [form] = Form.useForm();
+
+  // Subject dropdown narrows down to the currently selected exam.
+  const examWatch = Form.useWatch('exam_id', form);
+  const filteredSubjects = examWatch
+    ? subjects.filter((s) => s.exam_id === examWatch)
+    : subjects;
+  // Reset subject if the parent exam changes and the current value no longer fits.
+  useEffect(() => {
+    const current = form.getFieldValue('subject_id');
+    if (current && !filteredSubjects.some((s) => s.id === current)) {
+      form.setFieldValue('subject_id', undefined);
+      setFilters((f: any) => ({ ...f, subject_id: undefined, page: 1 }));
+    }
+  }, [examWatch, filteredSubjects, form]);
 
   const load = async () => {
     const params: any = { ...filters };
@@ -49,9 +87,26 @@ export default function QuestionListPage() {
     message.success('已下架'); load();
   };
 
-  const submitReview = async (id: number, versionId: number) => {
-    await api.post(`/admin/questions/${id}/submit-review`, null, { params: { version_id: versionId } });
+  const submitReview = async (id: number) => {
+    // Server resolves the latest DRAFT version automatically (current_version_id
+    // is null for un-published questions, so we used to send a null version_id
+    // that FastAPI rejected as 422). See backend submit_for_review.
+    await api.post(`/admin/questions/${id}/submit-review`);
     message.success('已提交审核'); load();
+  };
+
+  const batchSubmitReview = async () => {
+    if (!selected.length) return;
+    const r = await api.post('/admin/questions/batch/submit-review', { ids: selected });
+    const submitted = r.data.results.filter((x: any) => x.status === 'submitted').length;
+    const skipped = r.data.results.filter((x: any) => x.status === 'skipped').length;
+    const failed = r.data.results.filter((x: any) => x.status === 'error').length;
+    const parts: string[] = [];
+    if (submitted) parts.push(`提交 ${submitted}`);
+    if (skipped) parts.push(`跳过 ${skipped}`);
+    if (failed) parts.push(`失败 ${failed}`);
+    message.success(parts.length ? parts.join('，') : '无可处理项');
+    setSelected([]); load();
   };
 
   const batchTag = async () => {
@@ -71,7 +126,7 @@ export default function QuestionListPage() {
         </Form.Item>
         <Form.Item name="subject_id">
           <Select allowClear placeholder="科目" style={{ width: 140 }}
-            options={subjects.map((s) => ({ label: s.name, value: s.id }))} />
+            options={filteredSubjects.map((s) => ({ label: s.name, value: s.id }))} />
         </Form.Item>
         <Form.Item name="chapter_id">
           <Select allowClear placeholder="章节" style={{ width: 140 }}
@@ -93,13 +148,46 @@ export default function QuestionListPage() {
         <Form.Item name="difficulty">
           <InputNumber min={1} max={5} placeholder="难度" style={{ width: 90 }} />
         </Form.Item>
+        <Form.Item name="source_type">
+          <Select allowClear placeholder="来源" style={{ width: 130 }}
+            options={[
+              { label: '真题', value: 'REAL_EXAM' },
+              { label: '模拟题', value: 'MOCK' },
+              { label: '资料汇编', value: 'COMPILATION' },
+              { label: '平台原创', value: 'PLATFORM_ORIGINAL' },
+            ]} />
+        </Form.Item>
+        <Form.Item label="提交时间">
+          <DatePicker.RangePicker
+            value={createdRange}
+            onChange={(v) => {
+              const range = v as [any, any] | null;
+              setCreatedRange(range);
+              setFilters((f: any) => ({
+                ...f,
+                created_from: range?.[0] ? range[0].format('YYYY-MM-DD') : undefined,
+                created_to: range?.[1] ? range[1].format('YYYY-MM-DD') : undefined,
+                page: 1,
+              }));
+            }}
+          />
+        </Form.Item>
         <Button type="primary" htmlType="submit">搜索</Button>
-        <Button onClick={() => { form.resetFields(); setFilters({ page: 1, page_size: 20 }); }}>重置</Button>
+        <Button onClick={() => {
+          form.resetFields();
+          setCreatedRange(null);
+          setFilters({ page: 1, page_size: 20 });
+        }}>重置</Button>
       </Form>
 
       <Space style={{ marginBottom: 12 }}>
         {hasPerm('question.create') && (
           <Button type="primary" onClick={() => nav('/questions/new')}>新增题目</Button>
+        )}
+        {hasPerm('question.submit_review') && (
+          <Button disabled={!selected.length} onClick={batchSubmitReview}>
+            批量提交审核 ({selected.length})
+          </Button>
         )}
         {hasPerm('question.edit') && (
           <Button disabled={!selected.length} onClick={batchTag}>批量打标签 ({selected.length})</Button>
@@ -124,6 +212,10 @@ export default function QuestionListPage() {
           },
           { title: '考试', dataIndex: 'exam_id', width: 140, render: (v) => exams.find((e) => e.id === v)?.name },
           { title: '科目', dataIndex: 'subject_id', width: 120, render: (v) => subjects.find((s) => s.id === v)?.name },
+          {
+            title: '来源', dataIndex: 'source_type', width: 120,
+            render: (_: any, r: any) => <SourceBadge source_type={r.source_type} real_exam_year={r.real_exam_year} />,
+          },
           { title: '难度', dataIndex: 'difficulty', width: 70 },
           { title: '当前版本', dataIndex: 'current_version_id', width: 100 },
           {
@@ -138,7 +230,7 @@ export default function QuestionListPage() {
                   <Link to={`/questions/${r.id}/edit`}>编辑</Link>
                 )}
                 {r.version_status === 'DRAFT' && hasPerm('question.submit_review') && (
-                  <a onClick={() => submitReview(r.id, r.current_version_id)}>提交审核</a>
+                  <a onClick={() => submitReview(r.id)}>提交审核</a>
                 )}
                 {r.version_status === 'PUBLISHED' && hasPerm('question.offline') && (
                   <Popconfirm title="下架后不入新会话，确认？" onConfirm={() => offline(r.id)}>

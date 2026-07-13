@@ -16,7 +16,8 @@ REQUIRED = [
     "question_type", "stem", "option_a", "option_b", "option_c", "option_d",
     "option_e", "option_f", "option_g", "option_h", "answer",
     "analysis", "difficulty", "score", "source_name", "source_year",
-    "source_question_no", "license_type", "external_ref", "tags",
+    "source_question_no", "license_type", "source_type", "real_exam_year",
+    "external_ref", "tags",
 ]
 
 
@@ -38,7 +39,9 @@ def main(out_path: str | None = None) -> str:
         "", "", "", "",
         "A",
         "对话中双方围绕预订酒店展开",
-        3, 2.0, "CET4-2023-06", 2023, "1-A", "platform-original", "", "sample,main_idea",
+        3, 2.0, "CET4-2023-06", 2023, "1-A", "platform-original",
+        "REAL_EXAM", 2023,
+        "", "sample,main_idea",
     ])
     # column widths
     for i, h in enumerate(REQUIRED, start=1):
@@ -61,6 +64,8 @@ def main(out_path: str | None = None) -> str:
         ("source_year", "选填"),
         ("source_question_no", "选填"),
         ("license_type", "必填；授权类型"),
+        ("source_type", "选填；PLATFORM_ORIGINAL / REAL_EXAM / MOCK / COMPILATION，留空按 PLATFORM_ORIGINAL"),
+        ("real_exam_year", "选填；仅 source_type=REAL_EXAM 时填，如 2020"),
         ("external_ref", "选填"),
         ("tags", "选填；英文逗号分隔"),
     ]
