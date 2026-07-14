@@ -44,6 +44,9 @@ def list_targets(db: Session = Depends(get_db), user: User = Depends(resolve_use
             "is_primary": t.is_primary,
             "daily_question_goal": t.daily_question_goal,
             "target_exam_date": t.target_exam_date.isoformat() if t.target_exam_date else None,
+            "purpose": t.purpose,
+            "daily_goal": t.daily_goal,
+            "study_pace_minutes": t.study_pace_minutes,
         })
     return {"items": items}
 

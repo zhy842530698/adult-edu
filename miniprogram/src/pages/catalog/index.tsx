@@ -39,6 +39,12 @@ export default function CatalogPage() {
       .catch((e) => showError(e, '加载目录失败'));
   }, []);
 
+  // filter chip 数据：从后端 /exam-catalog 动态拉出每个 category 名
+  const filterOptions = useMemo(
+    () => ['全部', ...cats.map((c) => c.name)],
+    [cats]
+  );
+
   const startPractice = async (mode: string, exam_id?: number, chapter_id?: number, knowledge_point_id?: number) => {
     try {
       const s = await api.post<any>('/practice-sessions', {
@@ -49,16 +55,22 @@ export default function CatalogPage() {
   };
 
   const filtered = useMemo(() => {
-    if (!keyword.trim()) return cats;
-    const k = keyword.trim().toLowerCase();
-    return cats
-      .map((c) => ({
-        ...c,
-        exams: (c.exams || []).filter((e) => e.name.toLowerCase().includes(k)
-          || (e.subjects || []).some((s) => (s.chapters || []).some((ch) => ch.name.toLowerCase().includes(k)))),
-      }))
-      .filter((c) => c.exams.length > 0);
-  }, [keyword, cats]);
+    let result = cats;
+    if (filter !== '全部') {
+      result = result.filter((c) => c.name === filter);
+    }
+    if (keyword.trim()) {
+      const k = keyword.trim().toLowerCase();
+      result = result
+        .map((c) => ({
+          ...c,
+          exams: (c.exams || []).filter((e) => e.name.toLowerCase().includes(k)
+            || (e.subjects || []).some((s) => (s.chapters || []).some((ch) => ch.name.toLowerCase().includes(k)))),
+        }))
+        .filter((c) => c.exams.length > 0);
+    }
+    return result;
+  }, [keyword, cats, filter]);
 
   return (
     <View style={{ background: 'var(--bg-page)', minHeight: '100vh' }}>
@@ -82,9 +94,9 @@ export default function CatalogPage() {
         </View>
       </View>
 
-      {/* 筛选 tab */}
+      {/* 筛选 tab —— 来自后端 /exam-catalog 的 categories */}
       <ScrollView scrollX style={{ whiteSpace: 'nowrap', padding: '0 32rpx', height: '64rpx' }} showScrollbar={false}>
-        {['全部', '数学', '英语', '政治', '专业课'].map((t) => (
+        {filterOptions.map((t) => (
           <View
             key={t}
             onClick={() => setFilter(t)}
@@ -134,7 +146,7 @@ export default function CatalogPage() {
                     <View style={{ marginLeft: 16, flex: 1 }}>
                       <Text style={{ fontSize: '30rpx', fontWeight: 600, color: 'var(--ink-deep)' }}>{exam.name}</Text>
                       <Text style={{ display: 'block', fontSize: '22rpx', color: 'var(--ink-mid)', marginTop: 6 }}>
-                        题目 {(exam.subjects || []).reduce((s, sj) => s + (sj.chapters || []).reduce((a, c) => a + (c.knowledge_points?.length || 0), 0), 0) * 10} 道
+                        题目 {exam.question_count ?? 0} 道
                       </Text>
                     </View>
                     <Text style={{ fontSize: '40rpx', color: 'var(--ink-soft)' }}>›</Text>

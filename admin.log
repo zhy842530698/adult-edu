@@ -1,28 +1,9 @@
 
-  VITE v5.4.21  ready in 616 ms
+> adult-edu-admin-web@1.0.0 dev
+> vite --host 0.0.0.0
+
+
+  VITE v5.4.21  ready in 466 ms
 
   ➜  Local:   http://localhost:5173/
-  ➜  Network: http://192.168.1.2:5173/
-22:01:33 [vite] hmr update /src/pages/import.tsx
-22:20:46 [vite] hmr update /src/pages/question/list.tsx
-22:20:48 [vite] hmr update /src/pages/question/list.tsx
-22:20:48 [vite] hmr update /src/pages/question/list.tsx
-22:36:46 [vite] hmr update /src/pages/review.tsx
-22:40:31 [vite] hmr update /src/pages/question/list.tsx
-22:40:32 [vite] hmr update /src/pages/question/list.tsx
-22:40:33 [vite] hmr update /src/pages/question/list.tsx
-22:40:35 [vite] hmr update /src/pages/question/list.tsx
-22:40:36 [vite] hmr update /src/pages/review.tsx
-22:40:37 [vite] hmr update /src/pages/review.tsx
-22:40:40 [vite] hmr update /src/pages/review.tsx
-22:40:42 [vite] hmr update /src/pages/review.tsx
-22:44:51 [vite] hmr update /src/pages/question/list.tsx
-22:44:51 [vite] hmr update /src/pages/question/list.tsx
-22:44:54 [vite] hmr update /src/pages/question/list.tsx
-22:44:56 [vite] hmr update /src/pages/question/edit.tsx
-22:44:57 [vite] hmr update /src/pages/question/edit.tsx
-22:45:02 [vite] hmr update /src/pages/question/edit.tsx
-22:45:04 [vite] hmr update /src/pages/review.tsx
-22:45:05 [vite] hmr update /src/pages/review.tsx
-23:29:13 [vite] hmr update /src/App.tsx
-23:29:13 [vite] hmr update /src/components/layout/AdminLayout.tsx
+  ➜  Network: http://172.29.191.224:5173/

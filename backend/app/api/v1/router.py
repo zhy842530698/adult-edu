@@ -12,6 +12,7 @@ from app.api.v1.c_end import favorite as c_favorite  # noqa: E402
 from app.api.v1.c_end import progress as c_progress  # noqa: E402
 from app.api.v1.c_end import feedback as c_feedback  # noqa: E402
 from app.api.v1.c_end import target as c_target  # noqa: E402
+from app.api.v1.c_end import onboarding as c_onboarding  # noqa: E402
 
 from app.api.v1.admin import auth as a_auth  # noqa: E402
 from app.api.v1.admin import catalog as a_catalog  # noqa: E402
@@ -33,6 +34,7 @@ from app.api.v1.admin import upload as a_upload  # noqa: E402  # noqa: E402
 
 api_router.include_router(c_auth.router, prefix="/auth", tags=["C端-登录"])
 api_router.include_router(c_target.router, prefix="/user", tags=["C端-用户目标"])
+api_router.include_router(c_onboarding.router, prefix="/user", tags=["C端-onboarding"])
 api_router.include_router(c_catalog.router, tags=["C端-目录"])
 api_router.include_router(c_practice.router, prefix="/practice-sessions", tags=["C端-练习"])
 api_router.include_router(c_wrong.router, prefix="/wrong-questions", tags=["C端-错题"])

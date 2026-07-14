@@ -49,6 +49,7 @@ class DailyPracticeConfig(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     config_date = mapped_column(Date, nullable=False, unique=True)
     exam_id: Mapped[int] = mapped_column(ForeignKey("exams.id"), nullable=False)
+    subject_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subjects.id"), nullable=True)
     question_count: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
     auto_pick_rule: Mapped[str] = mapped_column(String(64), default="RANDOM", nullable=False)
     manual_question_version_ids = mapped_column(Text, nullable=True)

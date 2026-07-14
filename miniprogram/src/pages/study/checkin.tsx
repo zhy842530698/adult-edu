@@ -1,19 +1,39 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
-import { View as TView } from '@tarojs/components';
+import Taro from '@tarojs/taro';
+import { api } from '../../api/client';
+import { showError } from '../../utils/format';
 
 /**
- * 打卡日历（月视图）—— mock 全成。后端补 check-in 接口后可接。
- * 渲染：<年 月> 标题、星期表头、日期格子（已打卡为蓝色实心气泡）
+ * 打卡日历（月视图）—— 数据来源 /check-ins?year=&month=
+ * 无数据时显示空态；点击未打卡日期可触发 POST /check-ins（后端就绪后启用）。
  */
-
-const CHECKED_DAYS = new Set<number>([2, 3, 5, 7, 8, 9, 12, 15, 16, 20, 22, 25, 27, 28]);
 
 export default function CheckinPage() {
   const today = useMemo(() => new Date(), []);
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth()); // 0-based
-  const [streak, setStreak] = useState(23);
+  const [streak, setStreak] = useState<number | null>(null);
+  const [checkedDays, setCheckedDays] = useState<Set<number>>(new Set());
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await api.get<any>('/check-ins', { params: { year, month: month + 1 } });
+      const days: number[] = Array.isArray(r?.days) ? r.days : [];
+      setCheckedDays(new Set(days));
+      setStreak(typeof r?.streak === 'number' ? r.streak : null);
+    } catch (e) {
+      showError(e, '加载打卡数据失败');
+      setCheckedDays(new Set());
+      setStreak(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [year, month]);
 
   const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
   const lastDate = new Date(year, month + 1, 0).getDate();
@@ -27,6 +47,17 @@ export default function CheckinPage() {
   const goNext = () => {
     if (month === 11) { setYear(year + 1); setMonth(0); }
     else setMonth(month + 1);
+  };
+
+  const onCheckin = async (d: number) => {
+    if (checkedDays.has(d)) return;
+    try {
+      await api.post<any>('/check-ins', { date: `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}` });
+      await load();
+      Taro.showToast({ title: '打卡成功', icon: 'success' });
+    } catch (e) {
+      showError(e, '打卡失败');
+    }
   };
 
   return (
@@ -50,7 +81,9 @@ export default function CheckinPage() {
       }}>
         <View>
           <Text style={{ fontSize: '24rpx', opacity: 0.9, display: 'block' }}>已连续打卡</Text>
-          <Text style={{ display: 'block', marginTop: 4, fontSize: '64rpx', fontWeight: 700 }}>{streak} 天</Text>
+          <Text style={{ display: 'block', marginTop: 4, fontSize: '64rpx', fontWeight: 700 }}>
+            {streak == null ? '—' : streak} 天
+          </Text>
         </View>
         <Text style={{ fontSize: '120rpx' }}>🏆</Text>
       </View>
@@ -84,12 +117,12 @@ export default function CheckinPage() {
             <View key={`b-${b}`} style={{ width: '14.285%', height: '88rpx' }} />
           ))}
           {days.map((d) => {
-            const checked = CHECKED_DAYS.has(d);
+            const checked = checkedDays.has(d);
             const isToday = year === today.getFullYear() && month === today.getMonth() && d === today.getDate();
             return (
               <View
                 key={d}
-                onClick={() => setStreak(streak + (checked ? 0 : 1))}
+                onClick={() => onCheckin(d)}
                 style={{
                   width: '14.285%',
                   height: '88rpx',
@@ -117,7 +150,7 @@ export default function CheckinPage() {
 
       <View style={{ margin: '0 32rpx 80rpx' }}>
         <Text style={{ display: 'block', fontSize: '24rpx', color: 'var(--ink-mid)', textAlign: 'center' }}>
-          点击未打卡日期可补打卡（mock）
+          {loading ? '加载中…' : '点击未打卡日期可补打卡'}
         </Text>
       </View>
     </ScrollView>

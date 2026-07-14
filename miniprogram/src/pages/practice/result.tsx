@@ -25,7 +25,7 @@ export default function ResultPage() {
     <ScrollView scrollY style={{ background: 'var(--bg-page)' }}>
       <View style={{ padding: '32rpx', textAlign: 'center' }}>
         <Text style={{ fontSize: '32rpx', fontWeight: 600, color: 'var(--ink-deep)' }}>
-          {sess.paper_title || '2024 考研数学模拟卷（一）'}
+          {sess.paper_title || '本次练习'}
         </Text>
         <Text style={{ display: 'block', fontSize: '24rpx', color: 'var(--ink-mid)', marginTop: 8 }}>
           交卷时间：{sess.submitted_at ? new Date(sess.submitted_at).toLocaleString('zh-CN') : '—'}
@@ -46,17 +46,17 @@ export default function ResultPage() {
         <View style={{ marginTop: 32, display: 'flex', justifyContent: 'space-around' }}>
           <View style={{ textAlign: 'center' }}>
             <Text style={{ fontSize: '34rpx', fontWeight: 700, color: 'var(--green)' }}>
-              {Math.round(accuracy * 1.05)}
+              {correct}
             </Text>
-            <Text style={{ display: 'block', fontSize: '22rpx', color: 'var(--ink-mid)', marginTop: 8 }}>最高分</Text>
+            <Text style={{ display: 'block', fontSize: '22rpx', color: 'var(--ink-mid)', marginTop: 8 }}>答对</Text>
           </View>
           <View style={{ textAlign: 'center' }}>
-            <Text style={{ fontSize: '34rpx', fontWeight: 700, color: 'var(--brand)' }}>{Math.round(accuracy * 0.85)}</Text>
-            <Text style={{ display: 'block', fontSize: '22rpx', color: 'var(--ink-mid)', marginTop: 8 }}>平均分</Text>
+            <Text style={{ fontSize: '34rpx', fontWeight: 700, color: 'var(--red)' }}>{wrong}</Text>
+            <Text style={{ display: 'block', fontSize: '22rpx', color: 'var(--ink-mid)', marginTop: 8 }}>答错</Text>
           </View>
           <View style={{ textAlign: 'center' }}>
             <Text style={{ fontSize: '34rpx', fontWeight: 700, color: 'var(--orange)' }}>{accuracy}%</Text>
-            <Text style={{ display: 'block', fontSize: '22rpx', color: 'var(--ink-mid)', marginTop: 8 }}>已击败考生 ⓘ</Text>
+            <Text style={{ display: 'block', fontSize: '22rpx', color: 'var(--ink-mid)', marginTop: 8 }}>正确率</Text>
           </View>
         </View>
       </View>
@@ -86,7 +86,7 @@ export default function ResultPage() {
           </View>
         </View>
         <View className="answer-grid">
-          {(sess.questions || []).map((qq: any, i: number) => {
+          {(sess.items || []).map((qq: any, i: number) => {
             const correct = qq.is_correct === true;
             const wrong = qq.is_correct === false;
             let cls = 'answer-cell';

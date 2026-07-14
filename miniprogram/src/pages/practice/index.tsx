@@ -1,24 +1,16 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
-import Taro, { useDidShow } from '@tarojs/taro';
-import Illustration from '../../components/Illustration';
+import Taro from '@tarojs/taro';
+import { api } from '../../api/client';
 import Icon from '../../components/Icon';
-import ProgressBar from '../../components/ProgressBar';
 
 /**
- * 练习 Tab 聚合页 —— 原型 §"学习计划"截图
- * - 顶部 考研数学计划 卡（mock）
- * - 今日任务 checklist（mock）
- * - 本周进度 2 列
- * - 4 个二级入口：每日一练 / 错题本 / 我的笔记 / 打卡日历
+ * 练习 Tab 聚合页
+ * - 顶部：今日任务（来自 /practice-sessions/daily-task 与 /user/daily-target）
+ * - 中间：二级入口（每日一练 / 错题本 / 我的笔记 / 打卡日历）
  */
 
-const TODOS = [
-  { text: '高等数学 1.3 函数的极限', done: true },
-  { text: '线性代数 2.1 矩阵的运算',  done: true },
-  { text: '概率论 1.1 随机事件',      done: false },
-  { text: '每日一练 10 题',            done: false },
-];
+interface Todo { text: string; done: boolean; }
 
 const ENTRIES = [
   { key: 'daily',  label: '每日一练', desc: '每天 10 题，坚持进步', icon: 'calendar' as const, color: '#2563EB', bg: 'var(--brand-soft)' },
@@ -35,35 +27,28 @@ const PATHS: Record<string, string> = {
 };
 
 export default function PracticeIndexPage() {
-  const [todos] = useState(TODOS);
+  const [todos, setTodos] = useState<Todo[]>([]);
 
-  useDidShow(() => { /* 拉取真实数据时再实现 */ });
+  useEffect(() => {
+    api.get<any>('/practice-sessions/daily-task')
+      .then((dt) => {
+        if (dt?.has_task) {
+          setTodos([
+            { text: `每日一练 ${dt.count} 题`, done: !!dt.completed },
+          ]);
+        } else {
+          setTodos([]);
+        }
+      })
+      .catch(() => setTodos([]));
+  }, []);
 
   const finished = todos.filter((t) => t.done).length;
 
   return (
     <ScrollView scrollY style={{ background: 'var(--bg-page)', minHeight: '100vh' }}>
       <View style={{ padding: '40rpx 32rpx 16rpx' }}>
-        <Text style={{ fontSize: '32rpx', color: 'var(--ink-mid)' }}>学习计划</Text>
-      </View>
-
-      {/* 计划卡 */}
-      <View style={{
-        margin: '0 32rpx 24rpx',
-        background: '#fff',
-        borderRadius: '24rpx',
-        padding: '32rpx',
-        boxShadow: 'var(--shadow-sm)',
-      }}>
-        <View className="row-between">
-          <View>
-            <Text style={{ fontSize: '34rpx', fontWeight: 700, color: 'var(--ink-deep)' }}>考研数学计划</Text>
-            <Text style={{ display: 'block', marginTop: 8, fontSize: '24rpx', color: 'var(--ink-mid)' }}>
-              2024.01.01 ~ 2024.12.31
-            </Text>
-          </View>
-          <Text style={{ color: 'var(--brand)', fontSize: '26rpx', fontWeight: 500 }}>编辑计划</Text>
-        </View>
+        <Text style={{ fontSize: '32rpx', fontWeight: 600, color: 'var(--ink-deep)' }}>练习</Text>
       </View>
 
       {/* 今日任务 */}
@@ -78,56 +63,32 @@ export default function PracticeIndexPage() {
           <Text style={{ fontSize: '28rpx', fontWeight: 600, color: 'var(--ink-deep)' }}>今日任务</Text>
           <Text style={{ fontSize: '24rpx', color: 'var(--ink-mid)' }}>已完成 {finished}/{todos.length}</Text>
         </View>
-        {todos.map((t, i) => (
-          <View key={i} className="row" style={{ marginBottom: 16 }}>
-            <View style={{
-              width: '36rpx', height: '36rpx', borderRadius: '999rpx',
-              border: t.done ? '2rpx solid var(--brand)' : '2rpx solid var(--line)',
-              background: t.done ? 'var(--brand)' : '#fff',
-              color: '#fff', textAlign: 'center', lineHeight: '32rpx',
-              fontSize: '22rpx', marginRight: 16,
-              flexShrink: 0,
-            }}>
-              {t.done ? '✓' : ''}
+        {todos.length === 0 ? (
+          <Text style={{ fontSize: '26rpx', color: 'var(--ink-mid)' }}>今日暂无任务</Text>
+        ) : (
+          todos.map((t, i) => (
+            <View key={i} className="row" style={{ marginBottom: 16 }}>
+              <View style={{
+                width: '36rpx', height: '36rpx', borderRadius: '999rpx',
+                border: t.done ? '2rpx solid var(--brand)' : '2rpx solid var(--line)',
+                background: t.done ? 'var(--brand)' : '#fff',
+                color: '#fff', textAlign: 'center', lineHeight: '32rpx',
+                fontSize: '22rpx', marginRight: 16,
+                flexShrink: 0,
+              }}>
+                {t.done ? '✓' : ''}
+              </View>
+              <Text style={{
+                fontSize: '28rpx',
+                color: t.done ? 'var(--ink-mid)' : 'var(--ink-deep)',
+                textDecoration: t.done ? 'line-through' : 'none',
+              }}>{t.text}</Text>
             </View>
-            <Text style={{
-              fontSize: '28rpx',
-              color: t.done ? 'var(--ink-mid)' : 'var(--ink-deep)',
-              textDecoration: t.done ? 'line-through' : 'none',
-            }}>{t.text}</Text>
-          </View>
-        ))}
+          ))
+        )}
       </View>
 
-      {/* 本周进度 */}
-      <View style={{
-        margin: '0 32rpx 24rpx',
-        background: '#fff',
-        borderRadius: '24rpx',
-        padding: '32rpx',
-        boxShadow: 'var(--shadow-sm)',
-      }}>
-        <Text style={{ fontSize: '28rpx', fontWeight: 600, color: 'var(--ink-deep)', marginBottom: 20, display: 'block' }}>
-          本周进度
-        </Text>
-        <View className="row-between" style={{ marginBottom: 16 }}>
-          <Text style={{ fontSize: '24rpx', color: 'var(--ink-mid)' }}>学习时长</Text>
-          <Text style={{ fontSize: '22rpx', color: 'var(--ink-mid)' }}>
-            <Text style={{ color: 'var(--ink-deep)', fontWeight: 700, fontSize: '28rpx' }}>6.5</Text> / 10 小时
-          </Text>
-        </View>
-        <ProgressBar percent={65} />
-        <View style={{ height: 24 }} />
-        <View className="row-between" style={{ marginBottom: 16 }}>
-          <Text style={{ fontSize: '24rpx', color: 'var(--ink-mid)' }}>做题量</Text>
-          <Text style={{ fontSize: '22rpx', color: 'var(--ink-mid)' }}>
-            <Text style={{ color: 'var(--ink-deep)', fontWeight: 700, fontSize: '28rpx' }}>320</Text> / 500 题
-          </Text>
-        </View>
-        <ProgressBar percent={64} color="linear-gradient(90deg, var(--orange) 0%, #FB923C 100%)" />
-      </View>
-
-      {/* 4 个二级入口 */}
+      {/* 二级入口 */}
       <View style={{
         margin: '0 32rpx 80rpx',
         background: '#fff',

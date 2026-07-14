@@ -27,7 +27,7 @@ export default function AnalysisPage() {
     api.get<any>(`/practice-sessions/${sessId}`).then(setSess).catch((e) => showError(e, '加载失败'));
   }, [sessId]);
 
-  const q = sess?.questions?.find((x: any) => x.question_version_id === qvid);
+  const q = sess?.items?.find((x: any) => x.question_version_id === qvid);
 
   const TABS: Array<{ k: 'q' | 'a' | 'k'; l: string }> = [
     { k: 'q', l: '题目' },
@@ -96,7 +96,7 @@ export default function AnalysisPage() {
             }}>
               <Text style={{ display: 'block', fontSize: '24rpx', color: 'var(--ink-mid)' }}>正确答案</Text>
               <Text style={{ display: 'block', marginTop: 6, fontSize: '32rpx', fontWeight: 700, color: 'var(--green)' }}>
-                {(q?.correct_options || []).join(', ') || 'B'}
+                {(q?.correct_options || []).join(', ') || '—'}
               </Text>
             </View>
             <View style={{
@@ -107,13 +107,13 @@ export default function AnalysisPage() {
             }}>
               <Text style={{ display: 'block', fontSize: '24rpx', color: 'var(--ink-mid)' }}>你的答案</Text>
               <Text style={{ display: 'block', marginTop: 6, fontSize: '32rpx', fontWeight: 700, color: 'var(--red)' }}>
-                {(q?.selected_options || []).join(', ') || 'A'}
+                {(q?.selected_options || []).join(', ') || '—'}
               </Text>
             </View>
             <View className="card">
               <Text style={{ fontSize: '24rpx', color: 'var(--ink-mid)', display: 'block' }}>解析</Text>
               <Text style={{ display: 'block', marginTop: 12, fontSize: '28rpx', color: 'var(--ink-deep)', lineHeight: 1.6 }}>
-                {q?.analysis || '答案解释：根据题目的限定条件逐步推导……（TODO 接后端拿到 explanation 字段）'}
+                {q?.analysis || '暂无解析'}
               </Text>
             </View>
           </>
@@ -124,25 +124,27 @@ export default function AnalysisPage() {
             <Text style={{ fontSize: '24rpx', color: 'var(--ink-mid)', display: 'block', marginBottom: 16 }}>
               相关知识点
             </Text>
-            {[
-              { n: '极限的四则运算法则', desc: '若 limf(x)=A, limg(x)=B, 则：\n1) lim(f(x)±g(x)) = A±B\n2) lim(f(x)g(x)) = AB\n3) lim(f(x)/g(x)) = A/B (B≠0)' },
-              { n: '复合函数极限', desc: '若 limf(x)=A, limg(x)=B, 则 lim f(g(x)) = f(B)' },
-              { n: '重要极限', desc: 'lim sin(x)/x = 1 (x→0)' },
-            ].map((k, i) => (
-              <View key={i} style={{
-                background: 'var(--bg-soft)',
-                padding: '24rpx',
-                borderRadius: '16rpx',
-                marginBottom: 12,
-              }}>
-                <Text style={{ fontSize: '28rpx', fontWeight: 600, color: 'var(--ink-deep)', display: 'block' }}>
-                  {k.n}
-                </Text>
-                <Text style={{ display: 'block', marginTop: 8, fontSize: '24rpx', color: 'var(--ink-mid)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
-                  {k.desc}
-                </Text>
-              </View>
-            ))}
+            {Array.isArray(q?.knowledge_points) && q.knowledge_points.length > 0 ? (
+              q.knowledge_points.map((k: any, i: number) => (
+                <View key={i} style={{
+                  background: 'var(--bg-soft)',
+                  padding: '24rpx',
+                  borderRadius: '16rpx',
+                  marginBottom: 12,
+                }}>
+                  <Text style={{ fontSize: '28rpx', fontWeight: 600, color: 'var(--ink-deep)', display: 'block' }}>
+                    {k.name || k.n}
+                  </Text>
+                  {(k.desc || k.description) && (
+                    <Text style={{ display: 'block', marginTop: 8, fontSize: '24rpx', color: 'var(--ink-mid)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+                      {k.desc || k.description}
+                    </Text>
+                  )}
+                </View>
+              ))
+            ) : (
+              <Text style={{ color: 'var(--ink-mid)', fontSize: '24rpx' }}>暂无相关知识点</Text>
+            )}
           </View>
         )}
       </ScrollView>

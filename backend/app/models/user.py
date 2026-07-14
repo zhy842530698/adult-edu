@@ -26,6 +26,7 @@ class User(Base):
     is_banned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     banned_reason: Mapped[Optional[str]] = mapped_column(String(256))
     anonymized_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now, nullable=False)
 
@@ -40,5 +41,9 @@ class UserExamTarget(Base):
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     daily_question_goal: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
     target_exam_date: Mapped[Optional[date]] = mapped_column(Date)
+    # onboarding 问卷：purpose / daily_goal / study_pace_minutes
+    purpose: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    daily_goal: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    study_pace_minutes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now, nullable=False)

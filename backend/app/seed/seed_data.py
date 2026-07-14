@@ -148,7 +148,7 @@ def seed(db: Session) -> None:
         db.add(AdminUserRole(admin_user_id=admin.id, role_id=super_role.id))
         db.commit()
 
-    # Sample exam catalog: 英语 → CET-4 → 听力 → 长对话 → 主旨判断
+    # Sample exam catalog: 英语 → 大学英语 → 听力 → 长对话 → 主旨判断
     cat = db.execute(select(ExamCategory).where(ExamCategory.code == "EN")).scalar_one_or_none()
     if cat is None:
         cat = ExamCategory(
@@ -160,8 +160,8 @@ def seed(db: Session) -> None:
     exam = db.execute(select(Exam).where(Exam.code == "CET4")).scalar_one_or_none()
     if exam is None:
         exam = Exam(
-            category_id=cat.id, code="CET4", name="大学英语四级",
-            sort_order=1, is_active=True, description="CET-4", created_at=now,
+            category_id=cat.id, code="CET4", name="大学英语",
+            sort_order=1, is_active=True, description="大学英语课程", created_at=now,
         )
         db.add(exam); db.commit(); db.refresh(exam)
 

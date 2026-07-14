@@ -1,29 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
-import Taro from '@tarojs/taro';
 import { api } from '../../api/client';
 import { showError } from '../../utils/format';
 import ProgressBar from '../../components/ProgressBar';
 import Illustration from '../../components/Illustration';
 
 /**
- * 学习报告（mock + 真 progress/summary）
- * 顶部：3 大卡（错题 / 正确率 / 学习时长）
- * 中间：本周进度条
- * 底部：错因分布占位
+ * 学习报告 —— 数据来源 /progress/summary（KPI、连续打卡）
+ *             /progress/weekly  （周趋势，后端就绪后启用）
+ * 周趋势图与目标达成都改为占位，等对应接口就绪后再启用。
  */
 
 export default function ReportPage() {
   const [summary, setSummary] = useState<any>(null);
+  const [weekly, setWeekly] = useState<number[] | null>(null);
 
   useEffect(() => {
     api.get<any>('/progress/summary').then(setSummary).catch((e) => showError(e));
+    api.get<any>('/progress/weekly')
+      .then((r) => setWeekly(Array.isArray(r?.counts) ? r.counts : null))
+      .catch(() => setWeekly(null));
   }, []);
 
-  const sessions = summary?.total_sessions || 0;
-  const last7 = summary?.last7_answer_count || 0;
-  const streak = summary?.streak_days || 23;
-  const wrong = last7 ? Math.round(last7 * 0.2) : 24;
+  const sessions = summary?.total_sessions ?? null;
+  const accuracy = summary?.accuracy ?? null;
+  const streak = summary?.streak_days ?? null;
+  const studyMin = summary?.study_minutes ?? null;
 
   return (
     <ScrollView scrollY style={{ background: 'var(--bg-page)', minHeight: '100vh' }}>
@@ -34,6 +36,7 @@ export default function ReportPage() {
         </Text>
       </View>
 
+      {/* KPI 卡 */}
       <View style={{
         margin: '0 32rpx 24rpx',
         background: '#fff',
@@ -43,9 +46,10 @@ export default function ReportPage() {
       }}>
         <View style={{ display: 'flex' }}>
           {[
-            { v: wrong, l: '错题数',  color: 'var(--red)' },
-            { v: '78%', l: '正确率',  color: 'var(--green)' },
-            { v: '65',  l: '学习时长 (分)', color: 'var(--brand)' },
+            { v: sessions != null ? `${sessions}` : '—',          l: '总会话', color: 'var(--red)' },
+            { v: accuracy != null ? `${accuracy}%` : '—',          l: '正确率', color: 'var(--green)' },
+            { v: studyMin != null ? `${studyMin}` : '—',           l: '学习时长(分)', color: 'var(--brand)' },
+            { v: streak != null ? `${streak}` : '—',               l: '连续天数', color: 'var(--orange)' },
           ].map((s, i) => (
             <View key={i} style={{ flex: 1, textAlign: 'center' }}>
               <Text style={{ fontSize: '52rpx', fontWeight: 700, color: s.color }}>{s.v}</Text>
@@ -55,7 +59,7 @@ export default function ReportPage() {
         </View>
       </View>
 
-      {/* 周趋势占位 */}
+      {/* 周趋势：有 weekly 数据时渲染，否则空态 */}
       <View style={{
         margin: '0 32rpx 24rpx',
         background: '#fff',
@@ -66,25 +70,37 @@ export default function ReportPage() {
         <Text style={{ fontSize: '28rpx', fontWeight: 600, color: 'var(--ink-deep)', display: 'block', marginBottom: 24 }}>
           本周进度
         </Text>
-        <View style={{ display: 'flex', alignItems: 'flex-end', height: '180rpx', marginBottom: 16 }}>
-          {[40, 65, 50, 80, 70, 90, 55].map((h, i) => (
-            <View key={i} style={{ flex: 1, textAlign: 'center', height: `${h}%`, marginLeft: i > 0 ? 4 : 0, marginRight: 4 }}>
-              <View style={{
-                height: '100%', background: 'linear-gradient(180deg, var(--brand) 0%, var(--brand-deep) 100%)',
-                borderRadius: '12rpx',
-              }} />
+        {Array.isArray(weekly) && weekly.length > 0 ? (
+          <>
+            <View style={{ display: 'flex', alignItems: 'flex-end', height: '180rpx', marginBottom: 16 }}>
+              {(() => {
+                const max = Math.max(...weekly, 1);
+                return weekly.map((h, i) => (
+                  <View key={i} style={{ flex: 1, textAlign: 'center', height: `${Math.round((h / max) * 100)}%`, marginLeft: i > 0 ? 4 : 0, marginRight: 4 }}>
+                    <View style={{
+                      height: '100%', background: 'linear-gradient(180deg, var(--brand) 0%, var(--brand-deep) 100%)',
+                      borderRadius: '12rpx',
+                    }} />
+                  </View>
+                ));
+              })()}
             </View>
-          ))}
-        </View>
-        <View style={{ display: 'flex' }}>
-          {['一','二','三','四','五','六','日'].map((d, i) => (
-            <View key={i} style={{ flex: 1, textAlign: 'center' }}>
-              <Text style={{ fontSize: '22rpx', color: 'var(--ink-mid)' }}>{d}</Text>
+            <View style={{ display: 'flex' }}>
+              {['一','二','三','四','五','六','日'].map((d, i) => (
+                <View key={i} style={{ flex: 1, textAlign: 'center' }}>
+                  <Text style={{ fontSize: '22rpx', color: 'var(--ink-mid)' }}>{d}</Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
+          </>
+        ) : (
+          <Text style={{ fontSize: '24rpx', color: 'var(--ink-mid)', textAlign: 'center', padding: '40rpx 0' }}>
+            暂无周报数据
+          </Text>
+        )}
       </View>
 
+      {/* 目标达成：等后端 goal 接口就绪后启用 */}
       <View style={{
         margin: '0 32rpx 24rpx',
         background: '#fff',
@@ -92,18 +108,15 @@ export default function ReportPage() {
         padding: '32rpx',
         boxShadow: 'var(--shadow-sm)',
       }}>
-        <Text style={{ fontSize: '28rpx', fontWeight: 600, color: 'var(--ink-deep)', display: 'block' }}>目标达成</Text>
-        <View className="row-between" style={{ marginTop: 24, marginBottom: 12 }}>
-          <Text style={{ fontSize: '24rpx', color: 'var(--ink-mid)' }}>做题量</Text>
-          <Text style={{ fontSize: '24rpx', color: 'var(--ink-mid)' }}>320 / 500 题</Text>
-        </View>
-        <ProgressBar percent={64} color="linear-gradient(90deg, var(--orange) 0%, #FB923C 100%)" />
-        <View style={{ height: 24 }} />
-        <View className="row-between" style={{ marginBottom: 12 }}>
-          <Text style={{ fontSize: '24rpx', color: 'var(--ink-mid)' }}>每日学习</Text>
-          <Text style={{ fontSize: '24rpx', color: 'var(--ink-mid)' }}>6.5 / 10 小时</Text>
-        </View>
-        <ProgressBar percent={65} />
+        <Text style={{ fontSize: '28rpx', fontWeight: 600, color: 'var(--ink-deep)', display: 'block', marginBottom: 12 }}>
+          目标达成
+        </Text>
+        <Text style={{ fontSize: '24rpx', color: 'var(--ink-mid)', textAlign: 'center', padding: '24rpx 0' }}>
+          {summary?.weekly_goal ? `${summary.weekly_goal.done} / ${summary.weekly_goal.target} 题` : '暂未设置目标'}
+        </Text>
+        {summary?.weekly_goal && (
+          <ProgressBar percent={Math.min(100, Math.round((summary.weekly_goal.done / Math.max(summary.weekly_goal.target, 1)) * 100))} />
+        )}
       </View>
 
       <View style={{ margin: '0 32rpx 80rpx', textAlign: 'center' }}>

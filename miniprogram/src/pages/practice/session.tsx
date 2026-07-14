@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import { api, getToken } from '../../api/client';
@@ -12,10 +12,9 @@ interface QuestionBlock {
   stem: string;
   options: { option_code: string; content: string }[];
   score: number;
-  reveal?: boolean;
+  selected_options?: string[];
   correct_options?: string[];
   analysis?: string;
-  user_answer?: string[];
   is_correct?: boolean;
 }
 
@@ -27,7 +26,52 @@ export default function SessionPage() {
   const [revealed, setRevealed] = useState(false);
   const [favorite, setFavorite] = useState(false);
   const [showCard, setShowCard] = useState(false);
-  const [answerState, setAnswerState] = useState<'correct' | 'wrong' | null>(null);
+
+  // 自动保存：toggle 后防抖 500ms 再调接口；切题/交卷前 flush；用 dirtyRef + seq 避免重复保存和过期响应
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveSeqRef = useRef(0);
+  const pendingRef = useRef<string[]>([]);
+  const currentQvRef = useRef<number | null>(null);
+  const dirtyRef = useRef(false);
+
+  // 每题停留时长：进入题目时打点（questionStartAt），flush 时算秒数发给后端计入 UserAnswer.time_spent_seconds。
+  const questionStartAtRef = useRef<number>(Date.now());
+  const computeElapsed = () => Math.max(0, Math.round((Date.now() - questionStartAtRef.current) / 1000));
+  const resetTimer = (qv: number | null) => { questionStartAtRef.current = Date.now(); currentQvRef.current = qv; };
+
+  const flushSave = async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    if (!dirtyRef.current) return;
+    const qv = currentQvRef.current;
+    const opts = pendingRef.current;
+    if (qv == null || !opts.length) {
+      dirtyRef.current = false;
+      return;
+    }
+    dirtyRef.current = false; // 先清标记，避免与 setSess 触发的 useEffect 重入
+    const elapsed = computeElapsed();
+    const mySeq = ++saveSeqRef.current;
+    try {
+      await api.put<any>(
+        `/practice-sessions/${id}/answers/${qv}`,
+        { selected_options: opts, time_spent_seconds: elapsed },
+        { idempotencyKey: `sess-${id}-q-${qv}-${mySeq}-${Date.now()}` },
+      );
+      // 静默刷新会话，让答题卡更新已答状态
+      if (mySeq === saveSeqRef.current) {
+        const fresh = await api.get<any>(`/practice-sessions/${id}`);
+        if (mySeq === saveSeqRef.current) setSess(fresh);
+      }
+      // 写完后重置计时（对同一题反复改选项不会重复累加）
+      questionStartAtRef.current = Date.now();
+    } catch (e) {
+      dirtyRef.current = true; // 失败回滚 dirty，下次再试
+      showError(e, '保存失败');
+    }
+  };
 
   useEffect(() => {
     if (!getToken()) { Taro.redirectTo({ url: '/pages/login/index' }); return; }
@@ -35,47 +79,48 @@ export default function SessionPage() {
     api.get<any>(`/practice-sessions/${id}`).then(setSess);
   }, [id]);
 
-  const q: QuestionBlock | undefined = sess?.questions?.[idx];
-  const total = sess?.questions?.length || 0;
+  const q: QuestionBlock | undefined = sess?.items?.[idx];
+  const total = sess?.items?.length || 0;
 
   useEffect(() => {
-    setSelected(q?.user_answer || []);
-    setRevealed(sess?.mode !== 'MOCK' || sess?.status === 'SUBMITTED');
-    setAnswerState(null);
+    // 同步选中状态。注：不调 flushSave —— 切题/交卷的 flush 由 goNext/goPrev/submitAll 显式做，
+    // 自动保存后的 setSess 也只刷新数据，不再触发 save，避免循环。
+    setSelected(q?.selected_options || []);
+    resetTimer(q?.question_version_id ?? null);
+    pendingRef.current = q?.selected_options || [];
+    // 只有交了卷（SUBMITTED）才显示对错。其它模式（SEQUENTIAL/RANDOM/DAILY…）
+    // 一律等用户交完卷再 reveal，避免点完选项就飘绿/红。
+    setRevealed(sess?.status === 'SUBMITTED');
   }, [idx, sess]);
+
+  // 页面卸载时尽力 flush（例如被系统回收前）
+  useEffect(() => () => { flushSave(); /* eslint-disable-line */ }, []);
 
   const toggle = (code: string) => {
     if (!q || revealed) return;
-    if (q.question_type === 'SINGLE_CHOICE') setSelected([code]);
-    else setSelected(selected.includes(code) ? selected.filter((c) => c !== code) : [...selected, code]);
+    const next = q.question_type === 'SINGLE_CHOICE'
+      ? [code]
+      : selected.includes(code) ? selected.filter((c) => c !== code) : [...selected, code];
+    setSelected(next);
+    pendingRef.current = next;
+    // 这里不重写 currentQvRef —— 切题/交卷才需要重置 timer，见 resetTimer
+    dirtyRef.current = true;
+    // 防抖 500ms 再调保存接口（多选时连点也只发一次）
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(flushSave, 500);
   };
 
-  const submitOne = async () => {
-    if (!q || !selected.length) {
-      Taro.showToast({ title: '请先选择答案', icon: 'none' });
-      return;
-    }
-    try {
-      await api.put<any>(
-        `/practice-sessions/${id}/answers/${q.question_version_id}`,
-        { selected_options: selected, time_spent_seconds: 0 },
-        { idempotencyKey: `sess-${id}-q-${q.question_version_id}-${Date.now()}` },
-      );
-      const fresh = await api.get<any>(`/practice-sessions/${id}`);
-      // 找出本题是否正确（用 reveal 后的 correct_options 与 selected 比对）
-      const refreshed = fresh.questions?.[idx];
-      const correctSet = new Set(refreshed?.correct_options || []);
-      const allCorrect = selected.length === correctSet.size && selected.every((c) => correctSet.has(c));
-      setAnswerState(allCorrect ? 'correct' : 'wrong');
-      setSess(fresh);
-      setRevealed(true);
-    } catch (e) { showError(e, '保存失败'); }
+  const goPrev = async () => {
+    await flushSave();
+    setIdx(Math.max(0, idx - 1));
   };
-
-  const goPrev = () => setIdx(Math.max(0, idx - 1));
-  const goNext = () => setIdx(Math.min(total - 1, idx + 1));
+  const goNext = async () => {
+    await flushSave();
+    setIdx(Math.min(total - 1, idx + 1));
+  };
 
   const submitAll = async () => {
+    await flushSave();
     try {
       await api.post(`/practice-sessions/${id}/submit`, {},
         { idempotencyKey: `submit-${id}-${Date.now()}` });
@@ -101,12 +146,12 @@ export default function SessionPage() {
     return <View className="container"><Text>加载中…</Text></View>;
   }
 
-  const answeredCount = sess.questions.filter((x: any) => (x.user_answer || []).length > 0).length;
+  const answeredCount = sess.items.filter((x: any) => (x.selected_options || []).length > 0).length;
   const correctSet = new Set((q.correct_options || []).map((c) => c));
 
   return (
     <View className="container" style={{ padding: '24rpx' }}>
-      {/* 顶部导航条 (模拟原型 "< 1.3 函数的极限  ☆  ⊕") */}
+      {/* 顶部导航条 */}
       <View
         style={{
           background: '#fff',
@@ -175,15 +220,20 @@ export default function SessionPage() {
         })}
       </View>
 
-      {/* 反馈卡（仅在 reveal 后显示）*/}
-      {revealed && answerState && (
+      {/* 反馈卡（交卷后才显示，含正确答案和解析）*/}
+      {revealed && (() => {
+        const correct = q.is_correct === true;
+        const wrong = q.is_correct === false;
+        const ok = correct || wrong;
+        if (!ok) return null;
+        return (
         <View
           style={{
             marginTop: 24,
-            background: answerState === 'correct' ? 'var(--green-soft)' : 'var(--red-soft)',
+            background: correct ? 'var(--green-soft)' : 'var(--red-soft)',
             borderRadius: '24rpx',
             padding: '24rpx 32rpx',
-            border: answerState === 'correct' ? '2rpx solid var(--green)' : '2rpx solid var(--red)',
+            border: correct ? '2rpx solid var(--green)' : '2rpx solid var(--red)',
           }}
         >
           <View style={{ display: 'flex', alignItems: 'center' }}>
@@ -192,7 +242,7 @@ export default function SessionPage() {
                 width: '40rpx',
                 height: '40rpx',
                 borderRadius: '999rpx',
-                background: answerState === 'correct' ? 'var(--green)' : 'var(--red)',
+                background: correct ? 'var(--green)' : 'var(--red)',
                 color: '#fff',
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -201,16 +251,16 @@ export default function SessionPage() {
                 marginRight: 12,
               }}
             >
-              {answerState === 'correct' ? '✓' : '✕'}
+              {correct ? '✓' : '✕'}
             </View>
             <Text
               style={{
                 fontSize: '28rpx',
                 fontWeight: 600,
-                color: answerState === 'correct' ? 'var(--green)' : 'var(--red)',
+                color: correct ? 'var(--green)' : 'var(--red)',
               }}
             >
-              {answerState === 'correct' ? '回答正确' : '回答错误'}
+              {correct ? '回答正确' : '回答错误'}
             </Text>
           </View>
           <Text style={{ marginTop: 12, fontSize: '24rpx', color: 'var(--ink-mid)' }}>
@@ -222,25 +272,32 @@ export default function SessionPage() {
             </Text>
           )}
         </View>
-      )}
+        );
+      })()}
 
-      {/* 三键 */}
+      {/* 三键导航：上一题 / ≡ / 右槽按状态切换
+            - 非最后一题 → 下一题
+            - 最后一题 + 未交卷 → 交卷
+            - 最后一题 + 已交卷（查看解析）→ 返回主页 */}
       <View className="row-between" style={{ marginTop: 32 }}>
         <View className="btn-ghost" onClick={goPrev} style={{ flex: 1, marginRight: 12 }}>上一题</View>
         <View className="btn-ghost" onClick={() => setShowCard(!showCard)} style={{ padding: '22rpx 32rpx' }}>
           <Text style={{ fontSize: '32rpx', color: 'var(--brand)' }}>≡</Text>
         </View>
-        {idx < total - 1
-          ? <View className="btn-primary" onClick={goNext} style={{ flex: 1, marginLeft: 12 }}>下一题</View>
-          : <View className="btn-primary" onClick={submitAll} style={{ flex: 1, marginLeft: 12 }}>交卷</View>
-        }
+        {idx < total - 1 ? (
+          <View className="btn-primary" onClick={goNext} style={{ flex: 1, marginLeft: 12 }}>下一题</View>
+        ) : revealed ? (
+          <View
+            className="btn-primary"
+            onClick={() => Taro.switchTab({ url: '/pages/home/index' })}
+            style={{ flex: 1, marginLeft: 12 }}
+          >
+            返回主页
+          </View>
+        ) : (
+          <View className="btn-primary" onClick={submitAll} style={{ flex: 1, marginLeft: 12 }}>交卷</View>
+        )}
       </View>
-
-      {!revealed && (
-        <View className="btn-primary" onClick={submitOne} style={{ marginTop: 16 }}>
-          保存本题答案
-        </View>
-      )}
 
       <Text onClick={onFeedback} style={{ textAlign: 'center', marginTop: 24, color: 'var(--ink-mid)', fontSize: '24rpx' }}>
         题目有误？点这里反馈
@@ -258,8 +315,8 @@ export default function SessionPage() {
         >
           <Text className="muted">答题卡（{answeredCount}/{total}）</Text>
           <View className="answer-grid" style={{ marginTop: 16 }}>
-            {sess.questions.map((qq: any, i: number) => {
-              const ans = (qq.user_answer || []).length > 0;
+            {sess.items.map((qq: any, i: number) => {
+              const ans = (qq.selected_options || []).length > 0;
               const wrong = qq.is_correct === false;
               let cls = 'answer-cell';
               if (i === idx) cls += ' current';

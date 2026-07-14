@@ -1,16 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import { api } from '../../api/client';
 import { fmtDate, showError } from '../../utils/format';
 import Illustration from '../../components/Illustration';
 
-const SUBJECTS = ['全部', '数学', '英语', '政治', '专业课'];
-
 export default function WrongPage() {
   const [items, setItems] = useState<any[]>([]);
   const [filter, setFilter] = useState('全部');
   const [edit, setEdit] = useState(false);
+  const [examNames, setExamNames] = useState<string[]>([]);
 
   const load = async () => {
     try {
@@ -18,7 +17,22 @@ export default function WrongPage() {
       setItems(r.items || []);
     } catch (e) { showError(e, '加载失败'); }
   };
-  useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    load();
+    api.get<any>('/exam-catalog')
+      .then((r) => {
+        const names: string[] = [];
+        (r.items || []).forEach((c: any) => {
+          (c.exams || []).forEach((e: any) => { if (e.name) names.push(e.name); });
+        });
+        setExamNames(names);
+      })
+      .catch(() => setExamNames([]));
+  }, []);
+
+  // filter chip：'全部' + 后端返回的所有 exam name
+  const SUBJECTS = useMemo(() => ['全部', ...examNames], [examNames]);
 
   const onPractice = async () => {
     try {

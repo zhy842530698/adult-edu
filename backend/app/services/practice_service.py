@@ -6,7 +6,7 @@ import random
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import (
@@ -17,6 +17,7 @@ from app.core.exceptions import (
 )
 from app.models import (
     Paper,
+    PaperQuestion,
     PracticeSession,
     Question,
     QuestionVersion,
@@ -25,6 +26,7 @@ from app.models import (
     UserAnswer,
     UserDailyStat,
     UserQuestionState,
+    UserSequentialProgress,
 )
 from app.services.scoring import score_multi, score_single
 
@@ -33,6 +35,55 @@ MODES_REQUIRING_PUBLISHED = {
     "SEQUENTIAL", "RANDOM", "CHAPTER", "KNOWLEDGE", "WRONG", "FAVORITE", "DAILY", "MOCK",
 }
 
+# Modes that drive selection by a "where I left off" cursor + reuse the
+# user's IN_PROGRESS session when one exists for the same scope. WRONG/
+# FAVORITE/RANDOM/DAILY opt out — they don't follow a linear order.
+CURSOR_MODES = {"SEQUENTIAL", "CHAPTER", "KNOWLEDGE", "MOCK"}
+
+
+def _scope_for_mode(
+    mode: str,
+    *,
+    exam_id: int | None,
+    chapter_id: int | None,
+    knowledge_point_id: int | None,
+    paper_id: int | None,
+) -> tuple[str, int | None] | None:
+    """Return (scope, scope_id) for the per-user cursor table, or None.
+
+    Reuse key is the smallest (scope, scope_id) combination that uniquely
+    identifies the user's "where I left off" within that mode.
+    """
+    if mode == "SEQUENTIAL":
+        return ("EXAM", exam_id) if exam_id else None
+    if mode == "CHAPTER":
+        return ("CHAPTER", chapter_id) if chapter_id else None
+    if mode == "KNOWLEDGE":
+        return ("KNOWLEDGE", knowledge_point_id) if knowledge_point_id else None
+    if mode == "MOCK":
+        return ("PAPER", paper_id) if paper_id else None
+    return None
+
+
+def _apply_cursor(
+    questions: list[Question], cursor_id: int | None, count: int
+) -> list[Question]:
+    """Pick count questions in id order starting after cursor_id, wrapping around.
+
+    `questions` is expected to already be sorted ascending by Question.id. If
+    no cursor exists yet, just return the leading count. When the tail is
+    shorter than count, prepend the head (wrap-around) so the user is always
+    served a full batch.
+    """
+    if not questions:
+        return []
+    ordered = sorted(questions, key=lambda q: q.id)
+    if cursor_id is None:
+        return ordered[:count]
+    ahead = [q for q in ordered if q.id > cursor_id]
+    behind = [q for q in ordered if q.id <= cursor_id]
+    return (ahead + behind)[:count]
+
 
 def _pick_questions_for_mode(
     db: Session,
@@ -40,24 +91,77 @@ def _pick_questions_for_mode(
     user: User,
     mode: str,
     exam_id: int | None,
+    subject_id: int | None = None,
     chapter_id: int | None,
     knowledge_point_id: int | None,
+    paper_id: int | None,
     count: int,
+    cursor_id: int | None = None,
+    fallback: bool = True,
 ) -> list[Question]:
-    """Return published question masters in the requested order. Caller freezes version IDs."""
-    stmt = select(Question).where(Question.current_version_id.isnot(None))
-    if exam_id:
-        stmt = stmt.where(Question.exam_id == exam_id)
-    if chapter_id:
-        stmt = stmt.where(Question.chapter_id == chapter_id)
-    if knowledge_point_id:
-        from app.models import QuestionKnowledgePoint
-        stmt = stmt.join(
-            QuestionKnowledgePoint,
-            QuestionKnowledgePoint.question_version_id == Question.current_version_id,
-        ).where(QuestionKnowledgePoint.knowledge_point_id == knowledge_point_id)
+    """Return published question masters in the requested order. Caller freezes version IDs.
 
-    questions = list(db.execute(stmt).scalars())
+    SEQUENTIAL/CHAPTER/KNOWLEDGE/MOCK honour a per-user cursor (cursor_id) so
+    the next batch starts after the user's last reached question, with wrap-
+    around to the head when the tail is too short.
+    """
+    # MOCK + paper_id: pull the actual paper's ordered questions.
+    if mode == "MOCK" and paper_id:
+        paper = db.get(Paper, paper_id)
+        pv_id = paper.current_version_id if paper else None
+        if pv_id:
+            qids = list(
+                db.execute(
+                    select(PaperQuestion.question_id)
+                    .where(PaperQuestion.paper_version_id == pv_id)
+                    .order_by(PaperQuestion.sequence_no.asc())
+                ).scalars()
+            )
+            questions = list(
+                db.execute(
+                    select(Question).where(
+                        Question.id.in_(qids),
+                        Question.current_version_id.isnot(None),
+                    )
+                ).scalars()
+            )
+            # Re-order according to paper sequence rather than Question.id.
+            order = {qid: i for i, qid in enumerate(qids)}
+            questions.sort(key=lambda q: order.get(q.id, 1 << 30))
+        else:
+            questions = []
+    else:
+        stmt = select(Question).where(Question.current_version_id.isnot(None))
+        if exam_id:
+            stmt = stmt.where(Question.exam_id == exam_id)
+        if subject_id:
+            stmt = stmt.where(Question.subject_id == subject_id)
+        if chapter_id:
+            stmt = stmt.where(Question.chapter_id == chapter_id)
+        if knowledge_point_id:
+            from app.models import QuestionKnowledgePoint
+            stmt = stmt.join(
+                QuestionKnowledgePoint,
+                QuestionKnowledgePoint.question_version_id
+                == Question.current_version_id,
+            ).where(QuestionKnowledgePoint.knowledge_point_id == knowledge_point_id)
+        # Deterministic natural order for all "ordered" modes.
+        stmt = stmt.order_by(Question.id.asc())
+        questions = list(db.execute(stmt).scalars())
+
+    # 兜底：主目标/学科下没题 → 放宽到全题库（仅在非 DAILY/WRONG/FAVORITE 模式下）
+    if (
+        not questions
+        and fallback
+        and mode not in ("DAILY", "WRONG", "FAVORITE")
+    ):
+        questions = list(
+            db.execute(
+                select(Question)
+                .where(Question.current_version_id.isnot(None))
+                .order_by(Question.id.asc())
+            ).scalars()
+        )
 
     if mode == "WRONG":
         wrong_qids = {
@@ -83,9 +187,107 @@ def _pick_questions_for_mode(
         questions = [q for q in questions if q.id in fav_qids]
     elif mode == "RANDOM":
         random.shuffle(questions)
-    # SEQUENTIAL/CHAPTER/KNOWLEDGE/DAILY/MOCK keep natural order
+    # SEQUENTIAL/CHAPTER/KNOWLEDGE/MOCK keep ascending id order
 
-    return questions[:count]
+    return _apply_cursor(questions, cursor_id, count)
+
+
+def _resume_in_progress_session(
+    db: Session,
+    *,
+    user: User,
+    mode: str,
+    exam_id: int | None,
+    subject_id: int | None,
+    chapter_id: int | None,
+    knowledge_point_id: int | None,
+    paper_id: int | None,
+) -> PracticeSession | None:
+    """Return the user's un-submitted session for the same scope, if any.
+
+    Used to stop the home-screen "继续练习" button from minting N identical
+    sessions when the previous one was never submitted.
+    """
+    if mode not in CURSOR_MODES:
+        return None
+    stmt = select(PracticeSession).where(
+        PracticeSession.user_id == user.id,
+        PracticeSession.mode == mode,
+        PracticeSession.status == "IN_PROGRESS",
+    )
+    if mode == "SEQUENTIAL":
+        if exam_id is None:
+            return None
+        stmt = stmt.where(PracticeSession.exam_id == exam_id)
+    elif mode == "CHAPTER":
+        if chapter_id is None:
+            return None
+        stmt = stmt.where(
+            PracticeSession.id.in_(
+                select(SessionQuestion.session_id)
+                .join(Question, Question.id == SessionQuestion.question_id)
+                .where(Question.chapter_id == chapter_id)
+            )
+        )
+    elif mode == "KNOWLEDGE":
+        if knowledge_point_id is None:
+            return None
+        from app.models import QuestionKnowledgePoint, QuestionVersion as _QV
+        stmt = stmt.where(
+            PracticeSession.id.in_(
+                select(SessionQuestion.session_id)
+                .join(_QV, _QV.id == SessionQuestion.question_version_id)
+                .join(
+                    QuestionKnowledgePoint,
+                    QuestionKnowledgePoint.question_version_id == _QV.id,
+                )
+                .where(QuestionKnowledgePoint.knowledge_point_id == knowledge_point_id)
+            )
+        )
+    elif mode == "MOCK":
+        stmt = stmt.where(PracticeSession.paper_id == paper_id)
+    existing = db.execute(
+        stmt.order_by(PracticeSession.started_at.desc()).limit(1)
+    ).scalar_one_or_none()
+    return existing
+
+
+def _get_cursor(
+    db: Session, *, user_id: int, scope: str, scope_id: int
+) -> int | None:
+    row = db.execute(
+        select(UserSequentialProgress).where(
+            UserSequentialProgress.user_id == user_id,
+            UserSequentialProgress.scope == scope,
+            UserSequentialProgress.scope_id == scope_id,
+        )
+    ).scalar_one_or_none()
+    return row.last_question_id if row else None
+
+
+def _set_cursor(
+    db: Session, *, user_id: int, scope: str, scope_id: int, question_id: int
+) -> None:
+    row = db.execute(
+        select(UserSequentialProgress).where(
+            UserSequentialProgress.user_id == user_id,
+            UserSequentialProgress.scope == scope,
+            UserSequentialProgress.scope_id == scope_id,
+        )
+    ).scalar_one_or_none()
+    now = datetime.utcnow()
+    if row is None:
+        row = UserSequentialProgress(
+            user_id=user_id,
+            scope=scope,
+            scope_id=scope_id,
+            last_question_id=question_id,
+            updated_at=now,
+        )
+        db.add(row)
+    else:
+        row.last_question_id = question_id
+        row.updated_at = now
 
 
 def create_session(
@@ -95,19 +297,58 @@ def create_session(
     mode: str,
     count: int,
     exam_id: int | None = None,
+    subject_id: int | None = None,
     chapter_id: int | None = None,
     knowledge_point_id: int | None = None,
     paper_id: int | None = None,
 ) -> PracticeSession:
-    """Create a session and freeze question versions in order."""
+    """Create a session and freeze question versions in order.
+
+    For SEQUENTIAL/CHAPTER/KNOWLEDGE/MOCK, an in-progress session for the
+    same scope is reused (returned as-is) so the user can keep picking up
+    where they left off rather than minting a duplicate.
+    """
+    # 0. IN_PROGRESS reuse — short-circuit before any selection work.
+    reused = _resume_in_progress_session(
+        db,
+        user=user,
+        mode=mode,
+        exam_id=exam_id,
+        subject_id=subject_id,
+        chapter_id=chapter_id,
+        knowledge_point_id=knowledge_point_id,
+        paper_id=paper_id,
+    )
+    if reused is not None:
+        return reused
+
+    # 1. Look up cursor (last_question_id reached) from prior rounds.
+    cursor_id: int | None = None
+    cursor_pair = _scope_for_mode(
+        mode,
+        exam_id=exam_id,
+        chapter_id=chapter_id,
+        knowledge_point_id=knowledge_point_id,
+        paper_id=paper_id,
+    )
+    if cursor_pair:
+        _, scope_id = cursor_pair
+        cursor_id = _get_cursor(
+            db, user_id=user.id, scope=cursor_pair[0], scope_id=scope_id
+        )
+
+    # 2. Pick questions, advancing past the cursor with wrap-around.
     questions = _pick_questions_for_mode(
         db,
         user=user,
         mode=mode,
         exam_id=exam_id,
+        subject_id=subject_id,
         chapter_id=chapter_id,
         knowledge_point_id=knowledge_point_id,
+        paper_id=paper_id,
         count=count,
+        cursor_id=cursor_id,
     )
     actual = len(questions)
     if actual < count and mode != "DAILY":
@@ -265,6 +506,10 @@ def submit_session(db: Session, *, user: User, session_id: int) -> PracticeSessi
 
     # Update daily stat
     today = datetime.utcnow().date()
+    session_duration = db.execute(
+        select(func.coalesce(func.sum(UserAnswer.time_spent_seconds), 0))
+        .where(UserAnswer.session_id == session_id)
+    ).scalar() or 0
     stat = db.execute(
         select(UserDailyStat).where(
             UserDailyStat.user_id == user.id, UserDailyStat.stat_date == today
@@ -273,14 +518,13 @@ def submit_session(db: Session, *, user: User, session_id: int) -> PracticeSessi
     if stat is None:
         stat = UserDailyStat(
             user_id=user.id, stat_date=today, answer_count=len(sqs),
-            correct_count=correct_count, duration_seconds=sum(
-                (db.get(UserAnswer, ua.id).time_spent_seconds if ua else 0) for ua in []  # noqa
-            ),
+            correct_count=correct_count, duration_seconds=session_duration,
         )
         db.add(stat)
     else:
         stat.answer_count += len(sqs)
         stat.correct_count += correct_count
+        stat.duration_seconds = (stat.duration_seconds or 0) + session_duration
 
     session.status = "SUBMITTED"
     session.correct_count = correct_count
@@ -290,6 +534,45 @@ def submit_session(db: Session, *, user: User, session_id: int) -> PracticeSessi
     session.submitted_at = datetime.utcnow()
     session.updated_at = datetime.utcnow()
     db.commit()
+
+    # Advance per-user cursor so the next SEQUENTIAL/CHAPTER/KNOWLEDGE/MOCK
+    # session picks up after the last question just answered.
+    if sqs and session.mode in CURSOR_MODES:
+        cursor_pair = _scope_for_mode(
+            session.mode,
+            exam_id=session.exam_id,
+            chapter_id=None,
+            knowledge_point_id=None,
+            paper_id=session.paper_id,
+        )
+        # CHAPTER / KNOWLEDGE need to be resolved from the session's questions
+        # because session rows don't store those ids directly.
+        if cursor_pair is None and session.mode in ("CHAPTER", "KNOWLEDGE"):
+            last_sq = sqs[-1]
+            last_q = db.get(Question, last_sq.question_id)
+            if session.mode == "CHAPTER":
+                cursor_pair = ("CHAPTER", last_q.chapter_id)
+            else:
+                from app.models import QuestionKnowledgePoint as _QKP
+                kp_ids = list(
+                    db.execute(
+                        select(_QKP.knowledge_point_id).where(
+                            _QKP.question_version_id == last_sq.question_version_id
+                        )
+                    ).scalars()
+                )
+                if kp_ids:
+                    cursor_pair = ("KNOWLEDGE", kp_ids[0])
+        if cursor_pair and cursor_pair[1] is not None:
+            _set_cursor(
+                db,
+                user_id=session.user_id,
+                scope=cursor_pair[0],
+                scope_id=cursor_pair[1],
+                question_id=sqs[-1].question_id,
+            )
+            db.commit()
+
     db.refresh(session)
     return session
 
@@ -388,3 +671,179 @@ def session_to_dict(db: Session, session: PracticeSession, *, reveal_answers: bo
         "submitted_at": session.submitted_at.isoformat() if session.submitted_at else None,
         "items": items,
     }
+
+
+# ---------------------------------------------------------------------------
+# One-shot data backfill: clean up stale IN_PROGRESS sessions left behind by
+# the pre-cursor `_pick_questions_for_mode` and seed UserSequentialProgress
+# with the highest question_id the user has reached under each scope.
+#
+# Designed to be called from alembic migration `0005_sequential_progress` so
+# fresh deploys inherit the same fix, and from
+# scripts/backfill_sequential_progress.py for retro-fitting existing DBs.
+# ---------------------------------------------------------------------------
+
+
+from sqlalchemy import func as _func  # noqa: E402
+from app.models import Question as _Question  # noqa: E402
+from app.models import QuestionKnowledgePoint as _QKP  # noqa: E402
+
+
+def backfill_stale_in_progress_and_cursor(db: Session) -> dict[str, int]:
+    """Idempotent cleanup + cursor backfill. Returns counters for logging."""
+    stats = {"closed_submitted": 0, "deleted_empty": 0, "cursor_rows": 0}
+
+    # 0) Snapshot SessionQuestion rows for every IN_PROGRESS cursor-mode session
+    # BEFORE we touch them, so the cursor recompute has the right max question_id
+    # even when we end up deleting the session.
+    stale = db.execute(
+        select(PracticeSession).where(
+            PracticeSession.status == "IN_PROGRESS",
+            PracticeSession.mode.in_(CURSOR_MODES),
+        )
+    ).scalars().all()
+
+    # (session_id) -> max question_id from SessionQuestion (already frozen at session create time)
+    session_max_qid: dict[int, int | None] = {}
+    for s in stale:
+        mq = db.execute(
+            select(_func.max(SessionQuestion.question_id)).where(
+                SessionQuestion.session_id == s.id
+            )
+        ).scalar()
+        session_max_qid[s.id] = mq
+
+    # 1) Resolve every un-submitted cursor-mode session.
+    for s in stale:
+        has_answers = db.execute(
+            select(_func.count()).select_from(UserAnswer).where(
+                UserAnswer.session_id == s.id
+            )
+        ).scalar() or 0
+        if has_answers:
+            # User partially answered; close out as SUBMITTED with zeros so
+            # answered-count aggregates stay consistent, but DON'T credit any
+            # points (we don't know if the user got them right).
+            total = db.execute(
+                select(_func.count()).select_from(SessionQuestion).where(
+                    SessionQuestion.session_id == s.id
+                )
+            ).scalar() or 0
+            s.status = "SUBMITTED"
+            s.submitted_at = datetime.utcnow()
+            s.correct_count = 0
+            s.wrong_count = 0
+            s.unanswered_count = total
+            s.awarded_score = 0.0
+            stats["closed_submitted"] += 1
+        else:
+            # No answers at all — user abandoned this session; remove it so it
+            # can't trap them via the IN_PROGRESS reuse branch.
+            db.query(SessionQuestion).filter(
+                SessionQuestion.session_id == s.id
+            ).delete(synchronize_session=False)
+            db.delete(s)
+            stats["deleted_empty"] += 1
+    if stale:
+        db.commit()
+
+    # 2) Compute cursor per (user, scope, scope_id).
+    # Source = (a) SUBMITTED sessions that now include those we just closed,
+    #          (b) SessionQuestion rows that came from deleted IN_PROGRESS ones
+    #             — those have been wiped already, so we MUST use the snapshot
+    #             collected in step 0 to remember their max question_id.
+    cursor_specs: list[tuple[int, str, int, int]] = []
+
+    # SEQUENTIAL — one cursor per (user, exam_id).
+    # Source (a): SUBMITTED sessions.
+    seq_rows = db.execute(
+        select(
+            PracticeSession.user_id,
+            PracticeSession.exam_id,
+            _func.max(SessionQuestion.question_id),
+        )
+        .join(SessionQuestion, SessionQuestion.session_id == PracticeSession.id)
+        .where(PracticeSession.mode == "SEQUENTIAL")
+        .where(PracticeSession.exam_id.isnot(None))
+        .group_by(PracticeSession.user_id, PracticeSession.exam_id)
+    ).all()
+    for user_id, exam_id, last_qid in seq_rows:
+        if exam_id is not None and last_qid is not None:
+            cursor_specs.append((user_id, "EXAM", exam_id, last_qid))
+    # Source (b): IN_PROGRESS snapshot, weighted by exam_id.
+    for s in stale:
+        mq = session_max_qid.get(s.id)
+        if mq is None or s.exam_id is None:
+            continue
+        cursor_specs.append((s.user_id, "EXAM", s.exam_id, mq))
+
+    # CHAPTER — same two sources via Question.chapter_id.
+    chap_rows = db.execute(
+        select(
+            PracticeSession.user_id,
+            _Question.chapter_id,
+            _func.max(SessionQuestion.question_id),
+        )
+        .join(SessionQuestion, SessionQuestion.session_id == PracticeSession.id)
+        .join(_Question, _Question.id == SessionQuestion.question_id)
+        .where(PracticeSession.mode == "CHAPTER")
+        .where(_Question.chapter_id.isnot(None))
+        .group_by(PracticeSession.user_id, _Question.chapter_id)
+    ).all()
+    for user_id, chapter_id, last_qid in chap_rows:
+        if chapter_id is not None and last_qid is not None:
+            cursor_specs.append((user_id, "CHAPTER", chapter_id, last_qid))
+
+    # KNOWLEDGE — via QuestionKnowledgePoint.
+    from app.models import QuestionVersion as _QV
+
+    kp_rows = db.execute(
+        select(
+            PracticeSession.user_id,
+            _QKP.knowledge_point_id,
+            _func.max(SessionQuestion.question_id),
+        )
+        .join(SessionQuestion, SessionQuestion.session_id == PracticeSession.id)
+        .join(_QV, _QV.id == SessionQuestion.question_version_id)
+        .join(_QKP, _QKP.question_version_id == _QV.id)
+        .where(PracticeSession.mode == "KNOWLEDGE")
+        .group_by(PracticeSession.user_id, _QKP.knowledge_point_id)
+    ).all()
+    for user_id, kp_id, last_qid in kp_rows:
+        if kp_id is not None and last_qid is not None:
+            cursor_specs.append((user_id, "KNOWLEDGE", kp_id, last_qid))
+
+    # MOCK — one cursor per (user, paper_id).
+    mock_rows = db.execute(
+        select(
+            PracticeSession.user_id,
+            PracticeSession.paper_id,
+            _func.max(SessionQuestion.question_id),
+        )
+        .join(SessionQuestion, SessionQuestion.session_id == PracticeSession.id)
+        .where(PracticeSession.mode == "MOCK")
+        .where(PracticeSession.paper_id.isnot(None))
+        .group_by(PracticeSession.user_id, PracticeSession.paper_id)
+    ).all()
+    for user_id, paper_id, last_qid in mock_rows:
+        if paper_id is not None and last_qid is not None:
+            cursor_specs.append((user_id, "PAPER", paper_id, last_qid))
+
+    # 3) Aggregate per (user, scope, scope_id) — take the absolute max.
+    agg: dict[tuple[int, str, int], int] = {}
+    for user_id, scope, scope_id, last_qid in cursor_specs:
+        key = (user_id, scope, scope_id)
+        agg[key] = max(agg.get(key, 0), last_qid)
+
+    # 4) Upsert UserSequentialProgress.
+    for (user_id, scope, scope_id), last_qid in agg.items():
+        _set_cursor(
+            db,
+            user_id=user_id,
+            scope=scope,
+            scope_id=scope_id,
+            question_id=last_qid,
+        )
+        stats["cursor_rows"] += 1
+    db.commit()
+    return stats

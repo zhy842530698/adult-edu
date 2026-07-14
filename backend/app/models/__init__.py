@@ -21,6 +21,7 @@ from app.models.practice import (  # noqa: F401
     SessionQuestion,
     UserAnswer,
 )
+from app.models.sequential_progress import UserSequentialProgress  # noqa: F401
 from app.models.question import (  # noqa: F401
     Question,
     QuestionAsset,
@@ -61,6 +62,7 @@ __all__ = [
     "PracticeSession",
     "SessionQuestion",
     "UserAnswer",
+    "UserSequentialProgress",
     "UserQuestionState",
     "UserDailyStat",
     "HomeBanner",

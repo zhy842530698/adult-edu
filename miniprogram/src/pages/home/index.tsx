@@ -67,10 +67,15 @@ export default function HomePage() {
       Taro.showToast({ title: '今日暂无每日一练', icon: 'none' });
       return;
     }
-    goSession({ mode: 'DAILY', count: dailyTask.count, exam_id: dailyTask.exam_id });
+    goSession({
+      mode: 'DAILY',
+      count: dailyTask.count,
+      exam_id: dailyTask.exam_id,
+      subject_id: dailyTask.subject_id,
+    });
   };
 
-  const totalAnswered = progress?.total_sessions ? progress.total_sessions * 10 : 0;
+  const totalAnswered = progress?.total_answered ?? 0;
   const streak = progress?.streak_days || 0;
 
   return (
@@ -121,7 +126,7 @@ export default function HomePage() {
           <View style={{ flex: 1 }}>
             <Text style={{ color: '#fff', fontSize: '32rpx', fontWeight: 600 }}>每日打卡</Text>
             <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: '24rpx', marginTop: 8 }}>
-              已坚持 {streak || 23} 天
+              {streak > 0 ? `已坚持 ${streak} 天` : '今日打卡，开启连续记录'}
             </Text>
             <View style={{
               marginTop: 16,
@@ -177,10 +182,11 @@ export default function HomePage() {
         </View>
         <View style={{ display: 'flex' }}>
           {[
-            { v: progress?.total_sessions ? `${progress.total_sessions * 10}` : '0',    l: '总题数' },
-            { v: progress?.last7_answer_count ? `${Math.round((progress.last7_answer_count / Math.max(progress.last7_answer_count, 1)) * 100)}%` : '0%', l: '正确率' },
-            { v: progress?.last7_answer_count || '0', l: '做题天数' },
-            { v: '0h',          l: '学习时长' },
+            // 总题数：题库在该主目标考试下"已发布"的题数（固定值），不是已答去重数
+            { v: progress?.pool_size != null ? `${progress.pool_size}` : '—', l: '总题数' },
+            { v: progress?.accuracy != null ? `${progress.accuracy}%` : '—',             l: '正确率' },
+            { v: progress?.last7_answer_count != null ? `${progress.last7_answer_count}` : '—', l: '7天答题' },
+            { v: progress?.study_minutes != null ? `${Math.round(progress.study_minutes / 60)}h` : '—', l: '学习时长' },
           ].map((s, i) => (
             <View key={i} style={{ flex: 1, textAlign: 'center' }}>
               <Text style={{ fontSize: '34rpx', fontWeight: 700, color: 'var(--ink-deep)' }}>{s.v}</Text>
@@ -191,7 +197,14 @@ export default function HomePage() {
       </View>
 
       {/* 继续练习 */}
-      {primary && (
+      {primary && (() => {
+        // 复用后端"未交卷"逻辑：若上次就是 SEQUENTIAL 且未交卷，按钮文案从"开始新的"切到"继续"。
+        const ls = progress?.last_session;
+        const canResume = !!ls
+          && ls.mode === 'SEQUENTIAL'
+          && ls.exam_id === primary.exam_id
+          && ls.status !== 'SUBMITTED';
+        return (
         <View style={{
           margin: '0 32rpx 32rpx',
           background: '#fff',
@@ -200,13 +213,21 @@ export default function HomePage() {
           boxShadow: 'var(--shadow-sm)',
         }}>
           <View className="row-between">
-            <View>
-              <Text style={{ fontSize: '24rpx', color: 'var(--ink-mid)' }}>继续练习</Text>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <Text style={{ fontSize: '24rpx', color: 'var(--ink-mid)' }}>
+                {canResume ? '继续上次练习' : '继续练习'}
+              </Text>
               <Text style={{ fontSize: '28rpx', fontWeight: 600, color: 'var(--ink-deep)', marginTop: 4, display: 'block' }}>
-                高等数学 · 第一章 极限
+                {primary?.exam_name || '请先设置目标考试'}
               </Text>
               <Text style={{ fontSize: '22rpx', color: 'var(--ink-soft)', marginTop: 4, display: 'block' }}>
-                上次做到 1.3 函数的极限
+                {!ls
+                  ? '开始今日练习'
+                  : canResume && ls.last_sequence_no
+                    ? `上次做到第 ${ls.last_sequence_no} / ${ls.total_questions || '?'} 题`
+                    : ls.chapter_name
+                      ? `上次：${ls.chapter_name}`
+                      : `上次：${ls.mode} · ${ls.status === 'SUBMITTED' ? '已完成' : '进行中'}`}
               </Text>
             </View>
             <View
@@ -217,12 +238,36 @@ export default function HomePage() {
                 borderRadius: '999rpx',
                 fontSize: '24rpx',
                 fontWeight: 600,
+                flexShrink: 0,
               }}
               onClick={() => goSession({ mode: 'SEQUENTIAL', count: 10, exam_id: primary.exam_id })}
-            >继续练习</View>
+            >{canResume ? '继续' : '继续练习'}</View>
           </View>
           <View style={{ marginTop: 20 }}>
-            <ProgressBar percent={60} />
+            {/* 题库总进度：已刷（去重） / 题库总数 */}
+            <ProgressBar percent={progress?.pool_progress_percent ?? 0} />
+            <View className="row-between" style={{ marginTop: 8 }}>
+              <Text style={{ fontSize: '22rpx', color: 'var(--ink-soft)' }}>
+                已刷 {progress?.total_answered ?? 0} / {progress?.pool_size ?? '—'} 题
+              </Text>
+              <Text style={{ fontSize: '22rpx', color: 'var(--brand)', fontWeight: 600 }}>
+                {progress?.pool_progress_percent ?? 0}%
+              </Text>
+            </View>
+          </View>
+        </View>
+        );
+      })()}
+          <View style={{ marginTop: 20 }}>
+            <ProgressBar percent={progress?.progress_percent ?? 0} />
+            <View className="row-between" style={{ marginTop: 8 }}>
+              <Text style={{ fontSize: '22rpx', color: 'var(--ink-soft)' }}>
+                今日已完成 {progress?.today_count ?? 0} / {primary?.daily_question_goal ?? '—'} 题
+              </Text>
+              <Text style={{ fontSize: '22rpx', color: 'var(--brand)', fontWeight: 600 }}>
+                {progress?.progress_percent ?? 0}%
+              </Text>
+            </View>
           </View>
         </View>
       )}

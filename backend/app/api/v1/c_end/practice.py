@@ -14,11 +14,13 @@ from app.database import get_db
 from app.deps import resolve_user
 from app.models import (
     DailyPracticeConfig,
+    Exam,
     Paper,
     PracticeSession,
     Question,
     QuestionVersion,
     SessionQuestion,
+    Subject,
     User,
     UserAnswer,
 )
@@ -36,8 +38,9 @@ router = APIRouter()
 
 class CreateSessionReq(BaseModel):
     mode: str = Field(..., description="SEQUENTIAL/RANDOM/CHAPTER/KNOWLEDGE/WRONG/FAVORITE/MOCK/DAILY")
-    count: int = Field(..., ge=1, le=200)
+    count: int | None = Field(None, ge=1, le=200, description="DAILY 模式可省略，从今日配置读取")
     exam_id: int | None = None
+    subject_id: int | None = None
     chapter_id: int | None = None
     knowledge_point_id: int | None = None
     paper_id: int | None = None
@@ -49,18 +52,36 @@ def create(
     db: Session = Depends(get_db),
     user: User = Depends(resolve_user),
 ):
+    exam_id = payload.exam_id
+    subject_id = payload.subject_id
+    count = payload.count
+    # DAILY 模式：从今天的配置读 exam/subject/count（payload 可以省略）
+    if payload.mode == "DAILY":
+        cfg = db.execute(
+            select(DailyPracticeConfig).where(
+                DailyPracticeConfig.config_date == datetime.utcnow().date()
+            )
+        ).scalar_one_or_none()
+        if cfg is None:
+            return {"code": "NO_DAILY_TASK", "message": "今日暂无每日一练"}
+        exam_id = cfg.exam_id
+        subject_id = cfg.subject_id
+        count = cfg.question_count
+    if count is None:
+        return {"code": "VALIDATION_FAILED", "message": "count 不能为空"}
     sess = create_session(
         db,
         user=user,
         mode=payload.mode,
-        count=payload.count,
-        exam_id=payload.exam_id,
+        count=count,
+        exam_id=exam_id,
+        subject_id=subject_id,
         chapter_id=payload.chapter_id,
         knowledge_point_id=payload.knowledge_point_id,
         paper_id=payload.paper_id,
     )
-    # daily-task mode: ignore payload.count and use config count
-    return session_to_dict(db, sess, reveal_answers=sess.mode != "MOCK" or sess.status == "SUBMITTED")
+    # 答案仅在交卷后才返回，避免提前泄露（前端也按 status === 'SUBMITTED' 来 reveal）
+    return session_to_dict(db, sess, reveal_answers=sess.status == "SUBMITTED")
 
 
 @router.get("/daily-task")
@@ -70,10 +91,19 @@ def daily_task(db: Session = Depends(get_db), user: User = Depends(resolve_user)
         select(DailyPracticeConfig).where(DailyPracticeConfig.config_date == today)
     ).scalar_one_or_none()
     if cfg is None:
-        # auto-create a default daily task if any exam exists
-        first_exam = db.execute(select(Question).limit(1)).scalar_one_or_none()
         return {"has_task": False, "message": "今日暂无每日一练"}
-    return {"has_task": True, "config_id": cfg.id, "exam_id": cfg.exam_id, "count": cfg.question_count}
+
+    exam = db.get(Exam, cfg.exam_id)
+    subject = db.get(Subject, cfg.subject_id) if cfg.subject_id else None
+    return {
+        "has_task": True,
+        "config_id": cfg.id,
+        "exam_id": cfg.exam_id,
+        "exam_name": exam.name if exam else None,
+        "subject_id": cfg.subject_id,
+        "subject_name": subject.name if subject else None,
+        "count": cfg.question_count,
+    }
 
 
 @router.get("/{session_id}")
@@ -81,8 +111,8 @@ def get_session(session_id: int, db: Session = Depends(get_db), user: User = Dep
     sess = db.get(PracticeSession, session_id)
     if sess is None or sess.user_id != user.id:
         return {"code": "NOT_FOUND", "message": "会话不存在"}
-    reveal = sess.mode != "MOCK" or sess.status == "SUBMITTED"
-    return session_to_dict(db, sess, reveal_answers=reveal)
+    # 答案仅在交卷后才返回，避免提前泄露
+    return session_to_dict(db, sess, reveal_answers=sess.status == "SUBMITTED")
 
 
 class SaveAnswerReq(BaseModel):

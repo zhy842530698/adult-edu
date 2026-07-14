@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import { loginWithWechat } from '../../store/auth';
+import { api } from '../../api/client';
 import { showError } from '../../utils/format';
 
 export default function LoginPage() {
@@ -16,7 +17,13 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await loginWithWechat();
-      Taro.switchTab({ url: '/pages/home/index' });
+      // 登录后先看 onboarding 状态
+      const status = await api.get<any>('/user/onboarding-status').catch(() => null);
+      if (status && !status.completed) {
+        Taro.reLaunch({ url: '/pages/onboarding/index' });
+      } else {
+        Taro.switchTab({ url: '/pages/home/index' });
+      }
     } catch (e) {
       showError(e, '登录失败');
     } finally {
