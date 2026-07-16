@@ -13,6 +13,7 @@ from app.api.v1.c_end import progress as c_progress  # noqa: E402
 from app.api.v1.c_end import feedback as c_feedback  # noqa: E402
 from app.api.v1.c_end import target as c_target  # noqa: E402
 from app.api.v1.c_end import onboarding as c_onboarding  # noqa: E402
+from app.api.v1.c_end import engagement as c_engagement  # noqa: E402
 
 from app.api.v1.admin import auth as a_auth  # noqa: E402
 from app.api.v1.admin import catalog as a_catalog  # noqa: E402
@@ -41,6 +42,7 @@ api_router.include_router(c_wrong.router, prefix="/wrong-questions", tags=["C端
 api_router.include_router(c_favorite.router, tags=["C端-收藏"])
 api_router.include_router(c_progress.router, prefix="/progress", tags=["C端-进度"])
 api_router.include_router(c_feedback.router, prefix="/question-feedback", tags=["C端-反馈"])
+api_router.include_router(c_engagement.router, tags=["C端-学习互动"])
 
 api_router.include_router(a_auth.router, prefix="/admin/auth", tags=["后台-登录"])
 api_router.include_router(a_catalog.router, prefix="/admin", tags=["后台-目录"])

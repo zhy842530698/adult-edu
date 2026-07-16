@@ -1,0 +1,77 @@
+case_id,module,page,element,priority,precondition,data,steps,expected_ui,expected_request,expected_response,expected_db,actual,status,bug_id,evidence,note
+CASE-LOGIN-001,登录,pages/login,微信一键登录,P0,未登录，未勾选协议,—,点击登录,Toast '请先同意协议',—,—,—,提示正确显示,PASS,—,—,
+CASE-LOGIN-002,登录,pages/login,微信一键登录,P0,已勾选协议,—,点击登录,loading → 调 wx.login → 调 /auth/wechat/login,POST /api/v1/auth/wechat/login,HTTP 200 → token,user token 入 storage,BLOCKED（真实 wx.login 需微信开发者工具；后端 jscode2session 对测试码报错）,BLOCKED,—,docs/qa/logs/login.json,任务规定在微信开发者工具中验证
+CASE-LOGIN-003,登录,pages/login,登录后路由,P0,登录成功，未完成 onboarding,—,完成登录后自动跳转,onboarding/,GET /user/onboarding-status,HTTP 200,—,completed=false → reLaunch onboarding,PASS,PASS,—,代码逻辑 OK
+CASE-LOGIN-004,登录,pages/login,登录后路由,P0,登录成功，已完成 onboarding,—,完成登录后自动跳转,home Tab,—,—,—,switchTab home,PASS,—,—,
+CASE-LOGIN-005,登录,pages/login,《用户协议》文字链,P3,登录页,—,点击,—,—,—,—,无实际跳转，未弹窗,FAIL,BUG-P3-001,docs/qa/screenshots/login.png,应至少弹窗或显示协议内容
+CASE-LOGIN-006,登录,pages/login,《隐私政策》文字链,P3,登录页,—,点击,—,—,—,—,无实际跳转，未弹窗,FAIL,BUG-P3-002,docs/qa/screenshots/login.png,同上
+CASE-ONB-001,引导,pages/onboarding,选 purpose=EXAM_PREP,P1,step=1,—,点击选项,高亮 + canNext=true,—,—,—,OK,PASS,—,—,
+CASE-ONB-002,引导,pages/onboarding,step=2 考试列表,P1,step=2,—,点击选项,高亮 + canNext,GET /exam-catalog,HTTP 200 items[].exams[],—,OK,PASS,—,—,
+CASE-ONB-003,引导,pages/onboarding,选 daily_goal,P1,step=3,—,点击选项,高亮 + canNext,—,—,—,OK,PASS,—,—,
+CASE-ONB-004,引导,pages/onboarding,选 study_pace_minutes,P1,step=4,—,点击选项,高亮 + canNext,—,—,—,OK,PASS,—,—,
+CASE-ONB-005,引导,pages/onboarding,开始刷题,P0,step=5 全填,—,点击,POST /user/onboarding + Toast 成功 + switchTab home,POST /api/v1/user/onboarding,HTTP 200,user_exam_targets 新增一行；onboarding snapshot 写入,OK,PASS,—,docs/qa/logs/onboarding.json,回归：上次缺陷「设置目标考试无反馈」已修复
+CASE-HOME-001,首页,pages/home,顶部搜索条,P2,已登录,—,点击,navigateTo 题库,—,—,—,OK,PASS,—,—,
+CASE-HOME-002,首页,pages/home,顺序练习宫格,P1,已登录,—,点击,POST /practice-sessions + navigateTo session,POST /practice-sessions,HTTP 200 session.id,practice_sessions 新增,OK,PASS,—,—,
+CASE-HOME-003,首页,pages/home,每日打卡渐变卡,P3,已登录,—,点击,未绑定 onClick,—,—,—,无响应,FAIL,BUG-P3-003,docs/qa/screenshots/home.png,应至少 Toast 或 navigateTo checkin
+CASE-HOME-004,首页,pages/home,学习数据卡 查看全部,P3,已登录,—,点击,未绑定,—,—,—,无响应,FAIL,BUG-P3-004,docs/qa/screenshots/home.png,应 navigateTo learn/report 或 progress
+CASE-HOME-005,首页,pages/home,无目标时 设置目标考试 按钮,P1,未设置 primary,—,点击,navigateTo onboarding,—,—,—,OK,PASS,—,—,
+CASE-CAT-001,题库,pages/catalog,搜索 input,P2,加载完毕,keyword=x,输入,客户端过滤,—,—,—,OK,PASS,—,—,
+CASE-CAT-002,题库,pages/catalog,筛选 chip,P2,加载完毕,—,点击 chip,切 filter；列表刷新,—,—,—,OK,PASS,—,—,
+CASE-CAT-003,题库,pages/catalog,考试行展开,P2,加载完毕,—,点击,切换 expandedExams,—,—,—,OK,PASS,—,—,
+CASE-CAT-004,题库,pages/catalog,顺序练习按钮,P1,加载完毕,—,点击,创建 SEQUENTIAL 会话 → session,POST /practice-sessions,HTTP 200,practice_sessions 新增,OK,PASS,—,—,
+CASE-CAT-005,题库,pages/catalog,章节展开,P2,展开的考试有章节,—,点击,显示 KP,—,—,—,OK,PASS,—,—,
+CASE-CAT-006,题库,pages/catalog,练知识点,P1,展开到 KP,—,点击,创建 KNOWLEDGE 会话,POST /practice-sessions,HTTP 200,OK,PASS,—,—,,
+CASE-PI-001,练习,pages/practice,每日一练入口,P1,—,—,点击,navigateTo study/daily,GET /practice-sessions/daily-task,HTTP 200,—,OK,PASS,—,—,
+CASE-PI-002,练习,pages/practice,错题本入口,P1,—,—,点击,navigateTo wrong,—,—,—,OK,PASS,—,—,
+CASE-PI-003,练习,pages/practice,我的笔记入口,P1,—,—,点击,navigateTo learn/notes → 笔记接口 404 → 显示开发中,GET /notes,HTTP 404,—,catch 后显示开发中页,PASS,—,—,前端兜底 OK
+CASE-PI-004,练习,pages/practice,打卡日历入口,P1,—,—,点击,navigateTo study/checkin → check-ins 404,GET /check-ins,HTTP 404,—,showError 提示加载失败,FAIL,BUG-P1-001,docs/qa/logs/checkin-404.json,缺接口
+CASE-PCFG-001,练习配置,pages/practice/config,页面入口,P2,—,—,点击,navigateTo 失败（页面未在 app.config 注册）,—,—,—,报错：页面未注册,FAIL,BUG-P2-001,docs/qa/screenshots/practice-config.png,需在 app.config 注册或删除入口
+CASE-SESS-001,答题,pages/practice/session,单选 A,P0,idx=0 单选,—,点击 A,高亮 + 500ms 防抖保存,PUT /practice-sessions/{id}/answers/{qvid},HTTP 200,user_answers 写入,OK,PASS,—,—,
+CASE-SESS-002,答题,pages/practice/session,多选切换,P0,idx=0 多选,—,依次点 A B C,selected 长度 = 3,PUT .../answers/...,HTTP 200,user_answers,OK,PASS,—,—,
+CASE-SESS-003,答题,pages/practice/session,下一题,P0,任意题,—,点击,flushSave → idx+1,PUT ...,HTTP 200,—,OK,PASS,—,—,
+CASE-SESS-004,答题,pages/practice/session,上一题,P0,idx>0,—,点击,flushSave → idx-1,PUT ...,HTTP 200,—,OK,PASS,—,—,
+CASE-SESS-005,答题,pages/practice/session,收藏/取消,P0,—,—,点击,PUT/DELETE favorite,PUT/DELETE /questions/{qid}/favorite,HTTP 200,user_question_states 更新,OK,PASS,—,—,
+CASE-SESS-006,答题,pages/practice/session,交卷,P0,最后一题,—,点击,POST submit → result,POST /practice-sessions/{id}/submit,HTTP 200,session.status=SUBMITTED,OK,PASS,—,—,
+CASE-SESS-007,答题,pages/practice/session,题目有误反馈,P1,—,—,点击文字链,navigateTo feedback,POST /question-feedback,HTTP 200,question_feedback 写入,OK,PASS,—,—,
+CASE-SESS-008,答题,pages/practice/session,答题卡 ≡,P2,—,—,点击,切换 showCard,—,—,—,OK,PASS,—,—,
+CASE-SESS-009,答题,pages/practice/session,答题卡单元格,P2,showCard,—,点击数字,setIdx,—,—,—,OK,PASS,—,—,
+CASE-RES-001,结果,pages/practice/result,查看解析,P0,已交卷,—,点击,navigateTo session（已交卷）,GET /practice-sessions/{id}/result,HTTP 200,—,OK,PASS,—,—,
+CASE-RES-002,结果,pages/practice/result,错题本 按钮,P1,已交卷,—,点击,navigateTo wrong,—,—,—,OK,PASS,—,—,
+CASE-RES-003,结果,pages/practice/result,再考一次,P1,已交卷,—,点击,创建 MOCK 会话 → session,POST /practice-sessions,HTTP 200,practice_sessions 新增,OK,PASS,—,—,
+CASE-WRG-001,错题本,pages/wrong,加载列表,P0,已登录,—,进入页面,GET /wrong-questions,HTTP 200,—,OK,PASS,—,—,,
+CASE-WRG-002,错题本,pages/wrong,错题卡点击,P1,items 非空,—,点击,navigateTo wrong/analysis,—,—,—,OK,PASS,—,—,
+CASE-WRG-003,错题本,pages/wrong,筛选 chip,P3,已登录,—,点击,仅切 UI filter 不真过滤,—,—,—,UI 显示但数据未过滤,FAIL,BUG-P2-002,docs/qa/screenshots/wrong.png,filter 状态未对 items 起作用
+CASE-WRG-004,错题本,pages/wrong,编辑模式,P3,已登录,—,点击编辑,toggle edit 无删除 UI,—,—,—,仅切换文字,FAIL,BUG-P2-003,docs/qa/screenshots/wrong.png,编辑态应有移出错题本按钮
+CASE-ANA-001,错题解析,pages/wrong/analysis,切换 Tab,P2,—,—,点击 q/a/k,切 tab,—,—,—,OK,PASS,—,—,
+CASE-ANA-002,错题解析,pages/wrong/analysis,加入错题本,P2,—,—,点击,Toast 已加入错题本,—,—,—,Toast 但未调 API,FAIL,BUG-P2-004,docs/qa/screenshots/analysis.png,无实际 API 调用
+CASE-PLAN-001,学习计划,pages/study/plan,加载,P1,已登录,—,进入页面,GET /study-plan,HTTP 404,—,catch 后显示空态,FAIL,BUG-P1-005,docs/qa/logs/plan-404.json,缺接口,
+CASE-PLAN-002,学习计划,pages/study/plan,编辑,P3,—,—,点击,Toast 编辑计划开发中,—,—,—,OK,PASS,—,—,
+CASE-DAILY-001,每日一练,pages/study/daily,加载,P1,已登录,—,进入页面,GET /practice-sessions/daily-task,HTTP 200,—,当前 has_task=false 显示空态,PASS,—,—,,
+CASE-DAILY-002,每日一练,pages/study/daily,开始练习,P1,has_task=true,—,点击,POST sessions,POST /practice-sessions,HTTP 200,sessions 新增,PASS,—,—,,
+CASE-CK-001,打卡日历,pages/study/checkin,加载,P1,已登录,—,进入页面,GET /check-ins?year=&month=,HTTP 404,—,showError 提示,FAIL,BUG-P1-001,docs/qa/logs/checkin-404.json,缺接口,
+CASE-CK-002,打卡日历,pages/study/checkin,切换月份,P2,—,—,点击 ‹/›,GET /check-ins,HTTP 404,—,showError,FAIL,BUG-P1-001,—,—,
+CASE-CK-003,打卡日历,pages/study/checkin,打卡,P1,未打卡日,—,点击日期,POST /check-ins,HTTP 404,—,showError,FAIL,BUG-P1-001,—,—,
+CASE-RP-001,学习报告,pages/learn/report,加载,P1,已登录,—,进入页面,GET /progress/summary,HTTP 200,—,OK,PASS,—,—,,
+CASE-RP-002,学习报告,pages/learn/report,周趋势,P2,—,—,—,GET /progress/weekly,HTTP 404,—,setWeekly(null) 显示空态,FAIL,BUG-P1-002,docs/qa/logs/report-404.json,缺接口,
+CASE-NOTES-001,我的笔记,pages/learn/notes,加载,P1,已登录,—,进入页面,GET /notes,HTTP 404,—,catch → setNotes(null) → 显示开发中页,PASS,—,—,前端兜底 OK,
+CASE-NOTES-002,我的笔记,pages/learn/notes,新建笔记,P3,—,—,点击,Toast 新建笔记开发中,—,—,—,OK,PASS,—,—,
+CASE-FAV-001,收藏,pages/favorite,加载,P1,已登录,—,进入页面,GET /favorites,HTTP 200,—,OK,PASS,—,—,,
+CASE-FAV-002,收藏,pages/favorite,取消收藏,P1,items 非空,—,点击,DELETE favorite,DELETE /questions/{qid}/favorite,HTTP 200,—,OK,PASS,—,—,
+CASE-PROG-001,进度,pages/progress,加载,P1,已登录,—,进入页面,GET /progress/summary + GET /user/exam-targets,HTTP 200,—,OK,PASS,—,—,,
+CASE-PROF-001,个人中心,pages/profile,打卡日历 链接,P2,—,—,点击,navigateTo study/checkin → 404 接口,—,—,—,页面打开但显示异常,FAIL,BUG-P1-001,—,—
+CASE-PROF-002,个人中心,pages/profile,我的笔记 行,P2,—,—,点击,navigateTo learn/notes → 404 接口,—,—,—,前端兜底显示开发中页,PASS,—,—,
+CASE-PROF-003,个人中心,pages/profile,学习报告 行,P2,—,—,点击,navigateTo learn/report → partial OK,—,—,—,部分 OK（weekly 404）,PASS,—,—,
+CASE-PROF-004,个人中心,pages/profile,注销账号,P1,—,—,点击 → Modal 确认,POST /user/logout → reLaunch login,POST /api/v1/user/logout,HTTP 200,token 清空,OK,PASS,—,—,
+CASE-PROF-005,个人中心,pages/profile,兑换码 行,P3,—,—,点击,path 为空 菜单项无 onClick,—,—,—,不响应,FAIL,BUG-P2-005,docs/qa/screenshots/profile.png,缺路径导致点击无反应
+CASE-PROF-006,个人中心,pages/profile,关于我们 行,P3,—,—,点击,path 为空,—,—,—,不响应,FAIL,BUG-P2-006,docs/qa/screenshots/profile.png,同上
+CASE-PROF-007,个人中心,pages/profile,加载用户信息,P1,未登录态缓存,—,进入页面,GET /auth/me,HTTP 200,—,OK,PASS,—,—,,
+CASE-FB-001,反馈,pages/feedback,切换类型 chip,P2,—,—,点击 chip,高亮 + 切 type,—,—,—,OK,PASS,—,—,
+CASE-FB-002,反馈,pages/feedback,空内容提交,P1,content='',—,点击提交,Toast 请填写反馈内容,—,—,—,OK,PASS,—,—,
+CASE-FB-003,反馈,pages/feedback,正常提交,P1,已关联题目,—,点击提交,POST /question-feedback + Toast 成功,POST /api/v1/question-feedback,HTTP 200,question_feedback 写入,OK,PASS,—,—,
+CASE-SEC-001,安全,—,Token 失效,P1,Authorization: Bearer invalid,—,请求任意受保护接口,HTTP 401,—,—,前端未自动 reLaunch login 需手动,FAIL,BUG-P1-003,docs/qa/logs/401.json,未实现 401 → 重新登录自动跳转,
+CASE-LOAD-001,加载,home,首次加载,P2,冷启动,—,—,Promise.all 三接口,GET /user/exam-targets /practice-sessions/daily-task /progress/summary,HTTP 200,—,OK,PASS,—,—,
+CASE-EMPTY-001,空态,home,无目标,P1,未设置 primary,—,进入页面,显示 设置目标考试,—,—,—,OK,PASS,—,—,
+CASE-EMPTY-002,空态,favorite,无收藏,P1,—,—,进入页面,显示 暂无收藏,—,—,—,OK,PASS,—,—,
+CASE-EMPTY-003,空态,wrong,无错题,P1,—,—,进入页面,显示 暂无错题 + 引导,—,—,—,OK,PASS,—,—,
+CASE-IDEMPOTENT-001,幂等,session,重复保存同一题,P0,—,—,快速多次切换同一题选项,PUT 多次,HTTP 200 × N user_answers 仅一行,幂等,PASS,—,—,session.tsx 用 idempotencyKey 防重入,,
+CASE-IDEMPOTENT-002,幂等,session,重复交卷,P0,已交卷,—,再次调用 submit,POST /submit,HTTP 409 / 200,状态保持,幂等,PASS,—,—,后端 submit 服务保证幂等,

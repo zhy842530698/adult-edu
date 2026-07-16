@@ -10,15 +10,16 @@ interface MenuItem {
   icon: 'star' | 'notes' | 'chart' | 'medal' | 'cloud' | 'settings';
   label: string;
   path: string;
+  pending?: boolean;
 }
 
 const MENU: MenuItem[] = [
   { icon: 'star',    label: '我的收藏',     path: '/pages/favorite/index' },
   { icon: 'notes',   label: '我的笔记',     path: '/pages/learn/notes' },
   { icon: 'chart',   label: '学习报告',     path: '/pages/learn/report' },
-  { icon: 'medal',   label: '兑换码',       path: '' },
+  { icon: 'medal',   label: '兑换码',       path: '', pending: true },
   { icon: 'cloud',   label: '帮助与反馈',   path: '/pages/feedback/index' },
-  { icon: 'settings',label: '关于我们',     path: '' },
+  { icon: 'settings',label: '关于我们',     path: '', pending: true },
 ];
 
 export default function ProfilePage() {
@@ -122,7 +123,13 @@ export default function ProfilePage() {
         {MENU.map((m, i) => (
           <View
             key={m.label}
-            onClick={() => m.path && Taro.navigateTo({ url: m.path })}
+            onClick={() => {
+              if (m.path) {
+                Taro.navigateTo({ url: m.path });
+              } else if (m.pending) {
+                Taro.showToast({ title: '该功能即将上线', icon: 'none' });
+              }
+            }}
             style={{
               display: 'flex', alignItems: 'center',
               padding: '32rpx',

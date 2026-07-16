@@ -163,9 +163,20 @@ export default function AnalysisPage() {
             borderRadius: '16rpx', padding: '24rpx', textAlign: 'center',
             fontSize: '28rpx', fontWeight: 600,
           }}
-          onClick={() => Taro.showToast({ title: '已加入错题本', icon: 'success' })}
+          onClick={async () => {
+            if (!q?.question_id) {
+              Taro.showToast({ title: '缺少题目上下文', icon: 'none' });
+              return;
+            }
+            try {
+              await api.post(`/wrong-questions/${q.question_id}/remove`, {});
+              Taro.showToast({ title: '已掌握', icon: 'success' });
+            } catch (e) {
+              Taro.showToast({ title: '操作失败', icon: 'none' });
+            }
+          }}
         >
-          ⭐ 加入错题本
+          ⭐ 标记掌握
         </View>
         <View
           className="btn-primary"

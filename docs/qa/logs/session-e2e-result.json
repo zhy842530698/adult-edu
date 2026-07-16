@@ -1,0 +1,316 @@
+[
+  {
+    "step": "exam-catalog",
+    "ok": true,
+    "ms": 25.8,
+    "first_exam_id": 1,
+    "first_exam_name": "大学英语"
+  },
+  {
+    "step": "onboarding",
+    "ok": true,
+    "ms": 25.2,
+    "status": 200
+  },
+  {
+    "step": "exam-targets",
+    "ok": true,
+    "ms": 6.6,
+    "items": [
+      {
+        "id": 6,
+        "exam_id": 1,
+        "exam_name": "大学英语",
+        "is_primary": true,
+        "daily_question_goal": 16,
+        "target_exam_date": null,
+        "purpose": "KEEP_FRESH",
+        "daily_goal": "STEADY",
+        "study_pace_minutes": 20
+      }
+    ]
+  },
+  {
+    "step": "progress/summary",
+    "ok": true,
+    "ms": 19.0,
+    "summary_keys": [
+      "total_sessions",
+      "total_answered",
+      "last7_answer_count",
+      "accuracy",
+      "study_minutes",
+      "streak_days",
+      "today_count",
+      "progress_percent",
+      "pool_size",
+      "pool_progress_percent",
+      "last_session"
+    ]
+  },
+  {
+    "step": "create-session",
+    "ok": true,
+    "ms": 76.0,
+    "session_id": 65
+  },
+  {
+    "step": "session-detail",
+    "ok": true,
+    "ms": 26.7,
+    "total": 5,
+    "first_qvid": 26
+  },
+  {
+    "step": "answer-q1",
+    "ok": true,
+    "ms": 27.0,
+    "status": 200
+  },
+  {
+    "step": "submit",
+    "ok": true,
+    "ms": 69.5,
+    "status": 200
+  },
+  {
+    "step": "result",
+    "ok": true,
+    "ms": 27.2,
+    "score": 0.0,
+    "correct": 0,
+    "wrong": 1,
+    "total": 5.0
+  },
+  {
+    "step": "resubmit",
+    "ok": true,
+    "ms": 27.3,
+    "status": 200,
+    "body": {
+      "id": 65,
+      "mode": "SEQUENTIAL",
+      "status": "SUBMITTED",
+      "total_score": 5.0,
+      "awarded_score": 0.0,
+      "correct_count": 0,
+      "wrong_count": 1,
+      "unanswered_count": 4,
+      "started_at": "2026-07-16T06:22:00.589248",
+      "submitted_at": "2026-07-16T06:22:00.722075",
+      "items": [
+        {
+          "sequence_no": 1,
+          "question_id": 26,
+          "question_version_id": 26,
+          "question_type": "SINGLE_CHOICE",
+          "stem": "If I _______ you, I would take the job offer immediately.",
+          "options": [
+            {
+              "option_code": "A",
+              "content": "am"
+            },
+            {
+              "option_code": "B",
+              "content": "was"
+            },
+            {
+              "option_code": "C",
+              "content": "were"
+            },
+            {
+              "option_code": "D",
+              "content": "had been"
+            }
+          ],
+          "score": 1.0,
+          "selected_options": [
+            "A"
+          ],
+          "submit_count": 1,
+          "is_correct": false,
+          "awarded_score": 0.0,
+          "time_spent_seconds": 10,
+          "correct_options": [
+            "C"
+          ],
+          "analysis": "与现在事实相反的虚拟语气:从句用一般过去时 were,主句用 would + 动词原形."
+        },
+        {
+          "sequence_no": 2,
+          "question_id": 27,
+          "question_version_id": 27,
+          "question_type": "SINGLE_CHOICE",
+          "stem": "By the time you arrive, dinner _______ ready.",
+          "options": [
+            {
+              "option_code": "A",
+              "content": "will be"
+            },
+            {
+              "option_code": "B",
+              "content": "will have been"
+            },
+            {
+              "option_code": "C",
+              "content": "has been"
+            },
+            {
+              "option_code": "D",
+              "content": "is"
+            }
+          ],
+          "score": 1.0,
+          "selected_options": [],
+          "submit_count": 0,
+          "is_correct": null,
+          "awarded_score": null,
+          "time_spent_seconds": 0,
+          "correct_options": [
+            "B"
+          ],
+          "analysis": "将来完成时:到将来某一时间点已经完成的动作,用 will have + 过去分词."
+        },
+        {
+          "sequence_no": 3,
+          "question_id": 28,
+          "question_version_id": 28,
+          "question_type": "SINGLE_CHOICE",
+          "stem": "The book _______ on the table belongs to my roommate.",
+          "options": [
+            {
+              "option_code": "A",
+              "content": "laying"
+            },
+            {
+              "option_code": "B",
+              "content": "lain"
+            },
+            {
+              "option_code": "C",
+              "content": "lying"
+            },
+            {
+              "option_code": "D",
+              "content": "laid"
+            }
+          ],
+          "score": 1.0,
+          "selected_options": [],
+          "submit_count": 0,
+          "is_correct": null,
+          "awarded_score": null,
+          "time_spent_seconds": 0,
+          "correct_options": [
+            "C"
+          ],
+          "analysis": "分词短语作后置定语。The book 是 lying 的逻辑主语,且为主动关系,用现在分词 lying."
+        },
+        {
+          "sequence_no": 4,
+          "question_id": 29,
+          "question_version_id": 29,
+          "question_type": "SINGLE_CHOICE",
+          "stem": "It is high time that we _______ action to protect the environment.",
+          "options": [
+            {
+              "option_code": "A",
+              "content": "take"
+            },
+            {
+              "option_code": "B",
+              "content": "took"
+            },
+            {
+              "option_code": "C",
+              "content": "have taken"
+            },
+            {
+              "option_code": "D",
+              "content": "will take"
+            }
+          ],
+          "score": 1.0,
+          "selected_options": [],
+          "submit_count": 0,
+          "is_correct": null,
+          "awarded_score": null,
+          "time_spent_seconds": 0,
+          "correct_options": [
+            "B"
+          ],
+          "analysis": "It is (high) time that... 后用一般过去时表示『早该做某事』."
+        },
+        {
+          "sequence_no": 5,
+          "question_id": 30,
+          "question_version_id": 30,
+          "question_type": "SINGLE_CHOICE",
+          "stem": "Hardly _______ the room when the phone rang.",
+          "options": [
+            {
+              "option_code": "A",
+              "content": "I had entered"
+            },
+            {
+              "option_code": "B",
+              "content": "had I entered"
+            },
+            {
+              "option_code": "C",
+              "content": "did I enter"
+            },
+            {
+              "option_code": "D",
+              "content": "I entered"
+            }
+          ],
+          "score": 1.0,
+          "selected_options": [],
+          "submit_count": 0,
+          "is_correct": null,
+          "awarded_score": null,
+          "time_spent_seconds": 0,
+          "correct_options": [
+            "B"
+          ],
+          "analysis": "Hardly...when... 是一组倒装搭配;Hardly 置于句首,主句部分倒装:had I entered."
+        }
+      ]
+    }
+  },
+  {
+    "step": "missing-endpoints",
+    "ok": true,
+    "ms": 26.8,
+    "/study-plan": 200,
+    "/notes": 200,
+    "/check-ins": 422,
+    "/progress/weekly": 200
+  },
+  {
+    "step": "bad-token",
+    "ok": true,
+    "ms": 2.0,
+    "status": 401,
+    "body": {
+      "code": "AUTH_REQUIRED",
+      "message": "AUTH_REQUIRED",
+      "request_id": "6b4216d26d764285"
+    }
+  },
+  {
+    "step": "feedback",
+    "ok": true,
+    "ms": 20.2,
+    "status": 200,
+    "body": "{\"id\":4,\"status\":\"OPEN\"}"
+  },
+  {
+    "step": "favorite-toggle",
+    "ok": true,
+    "ms": 27.6,
+    "put": 200,
+    "delete": 200
+  }
+]

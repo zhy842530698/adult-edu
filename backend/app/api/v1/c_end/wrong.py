@@ -43,3 +43,20 @@ class RepracticeReq(BaseModel):
 def repractice(payload: RepracticeReq, db: Session = Depends(get_db), user: User = Depends(resolve_user)):
     sess = create_session(db, user=user, mode="WRONG", count=payload.count)
     return {"session_id": sess.id, "total_questions": sess.total_score}
+
+
+@router.post("/{question_id}/remove")
+def remove_wrong(question_id: int, db: Session = Depends(get_db), user: User = Depends(resolve_user)):
+    """将题目从错题本中移除（标记 mastered 并清零 wrong_count）。"""
+    state = db.execute(
+        select(UserQuestionState).where(
+            UserQuestionState.user_id == user.id,
+            UserQuestionState.question_id == question_id,
+        )
+    ).scalar_one_or_none()
+    if not state:
+        return {"ok": True, "removed": False}
+    state.wrong_count = 0
+    state.mastered = True
+    db.commit()
+    return {"ok": True, "removed": True}

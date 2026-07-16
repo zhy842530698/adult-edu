@@ -13,6 +13,7 @@ from app.core.exceptions import (
     InsufficientQuestions,
     InvalidSelectedOptions,
     NotFound,
+    PoolCompleted,
     SessionAlreadySubmitted,
 )
 from app.models import (
@@ -149,11 +150,15 @@ def _pick_questions_for_mode(
         stmt = stmt.order_by(Question.id.asc())
         questions = list(db.execute(stmt).scalars())
 
-    # 兜底：主目标/学科下没题 → 放宽到全题库（仅在非 DAILY/WRONG/FAVORITE 模式下）
+    # 兜底：仅在用户**没有指定 exam_id**、且是 SEQUENTIAL 时放宽到全题库。
+    # 例外：用户没有设置主目标时点 home 页的"顺序练习"，exam_id 是 None，得有题才行。
+    # 一旦用户/前端明确带了 exam_id（比如从 catalog 点 大学英语 进去），就老老实实按
+    # 指定范围挑题 —— 没题就报 InsufficientQuestions，绝不允许悄悄塞行测的题进来。
     if (
         not questions
         and fallback
-        and mode not in ("DAILY", "WRONG", "FAVORITE")
+        and mode == "SEQUENTIAL"
+        and exam_id is None
     ):
         questions = list(
             db.execute(
@@ -290,6 +295,34 @@ def _set_cursor(
         row.updated_at = now
 
 
+def _is_sequential_pool_exhausted(db: Session, *, user_id: int, exam_id: int) -> bool:
+    """Return True iff the user has answered at least every published question
+    in the given exam.
+
+    近似判断 —— 与 progress.summary 的 pool_size / total_answered 同口径：admin
+    新发布题目会让 pool_size 上涨并可能短暂回到非通关态；这是有意的产品取舍，
+    不做反向补偿。pool_size == 0 视作"题库为空"而非"已通关"，由上游
+    InsufficientQuestions 处理。
+    """
+    pool_size = db.execute(
+        select(func.count()).select_from(Question).where(
+            Question.exam_id == exam_id,
+            Question.current_version_id.isnot(None),
+        )
+    ).scalar() or 0
+    if pool_size <= 0:
+        return False
+    answered = db.execute(
+        select(func.count(func.distinct(UserAnswer.question_version_id)))
+        .join(PracticeSession, PracticeSession.id == UserAnswer.session_id)
+        .where(
+            PracticeSession.user_id == user_id,
+            PracticeSession.exam_id == exam_id,
+        )
+    ).scalar() or 0
+    return answered >= pool_size
+
+
 def create_session(
     db: Session,
     *,
@@ -301,12 +334,17 @@ def create_session(
     chapter_id: int | None = None,
     knowledge_point_id: int | None = None,
     paper_id: int | None = None,
+    restart: bool = False,
 ) -> PracticeSession:
     """Create a session and freeze question versions in order.
 
     For SEQUENTIAL/CHAPTER/KNOWLEDGE/MOCK, an in-progress session for the
     same scope is reused (returned as-is) so the user can keep picking up
     where they left off rather than minting a duplicate.
+
+    `restart=True` 仅对 SEQUENTIAL 有意义：题库已通关时，用户点"重新练习"会显式
+    跳过 PoolCompleted 拦截并清掉该 scope 的 cursor，让下一批题从题库头部重新
+    开始。其余模式忽略此参数。
     """
     # 0. IN_PROGRESS reuse — short-circuit before any selection work.
     reused = _resume_in_progress_session(
@@ -321,6 +359,24 @@ def create_session(
     )
     if reused is not None:
         return reused
+
+    # 0.5 SEQUENTIAL 已通关拦截：仅当用户在该 exam 下答过的题目数已覆盖
+    # 已发布题库时才阻止新会话创建，让"从第一道重新刷"的 wrap-around 不再发生。
+    # 必须在 _resume_in_progress_session 之后——未交卷的会话应继续走"继续"路径。
+    # restart=True 时显式绕过并清掉 cursor，从头开始新一轮。
+    if (
+        mode == "SEQUENTIAL"
+        and exam_id is not None
+        and _is_sequential_pool_exhausted(db, user_id=user.id, exam_id=exam_id)
+    ):
+        if not restart:
+            raise PoolCompleted("已通关该考试全部题目")
+        db.query(UserSequentialProgress).filter(
+            UserSequentialProgress.user_id == user.id,
+            UserSequentialProgress.scope == "EXAM",
+            UserSequentialProgress.scope_id == exam_id,
+        ).delete(synchronize_session=False)
+        db.commit()
 
     # 1. Look up cursor (last_question_id reached) from prior rounds.
     cursor_id: int | None = None

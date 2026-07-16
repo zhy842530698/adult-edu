@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.deps import resolve_user
 from app.models import (
-    Chapter, Exam, ExamCategory, KnowledgePoint, Question, QuestionVersion, Subject, User,
+    Chapter, Exam, ExamCategory, KnowledgePoint, Question, QuestionKnowledgePoint,
+    QuestionVersion, Subject, User,
 )
 
 router = APIRouter()
@@ -32,8 +33,8 @@ def _count_published(db: Session, subject_id: int | None, exam_id: int | None) -
 def catalog(db: Session = Depends(get_db), user: User | None = Depends(lambda: None)):
     """Public catalog for browse + login. Returns active nodes only.
 
-    每个 exam / subject 节点附带 question_count（按 subject 聚合，subject 0 题则用 exam），
-    前端可直接用此字段显示题量，避免从 chapters+KP 间接算。
+    每个 exam / subject / chapter / knowledge_point 节点均附带 question_count（已发布题数），
+    前端可直接用此字段显示题量，不必从 chapters + KP 间接算。
     """
     cats = list(db.execute(
         select(ExamCategory).where(ExamCategory.is_active.is_(True)).order_by(ExamCategory.sort_order)
@@ -62,9 +63,37 @@ def catalog(db: Session = Depends(get_db), user: User | None = Depends(lambda: N
                             KnowledgePoint.chapter_id == ch.id, KnowledgePoint.is_active.is_(True)
                         ).order_by(KnowledgePoint.sort_order)
                     ).scalars())
+                    ch_count = int(db.execute(
+                        select(func.count(Question.id))
+                        .join(QuestionVersion, QuestionVersion.id == Question.current_version_id)
+                        .where(
+                            QuestionVersion.status == "PUBLISHED",
+                            Question.chapter_id == ch.id,
+                        )
+                    ).scalar() or 0)
+                    kp_nodes = []
+                    for k in kps:
+                        kp_count = int(db.execute(
+                            select(func.count(func.distinct(Question.id)))
+                            .join(QuestionVersion, QuestionVersion.id == Question.current_version_id)
+                            .join(
+                                QuestionKnowledgePoint,
+                                QuestionKnowledgePoint.question_version_id
+                                == QuestionVersion.id,
+                            )
+                            .where(
+                                QuestionKnowledgePoint.knowledge_point_id == k.id,
+                                QuestionVersion.status == "PUBLISHED",
+                            )
+                        ).scalar() or 0)
+                        kp_nodes.append({
+                            "id": k.id, "code": k.code, "name": k.name,
+                            "question_count": kp_count,
+                        })
                     ch_nodes.append({
                         "id": ch.id, "code": ch.code, "name": ch.name,
-                        "knowledge_points": [{"id": k.id, "code": k.code, "name": k.name} for k in kps],
+                        "question_count": ch_count,
+                        "knowledge_points": kp_nodes,
                     })
                 sub_nodes.append({
                     "id": s.id, "code": s.code, "name": s.name,

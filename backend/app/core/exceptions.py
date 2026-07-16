@@ -68,6 +68,13 @@ class InsufficientQuestions(AppError):
         self.actual_available = actual_available
 
 
+class PoolCompleted(AppError):
+    """SEQUENTIAL 创建会话时被拒：用户在该 exam 下答过的题量已覆盖已发布题库。"""
+
+    code = "POOL_COMPLETED"
+    http_status = 400
+
+
 class ImportValidationFailed(AppError):
     code = "IMPORT_VALIDATION_FAILED"
     http_status = 422

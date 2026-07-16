@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
-import Taro from '@tarojs/taro';
 import { api } from '../../api/client';
 import { showError } from '../../utils/format';
 
 /**
  * 打卡日历（月视图）—— 数据来源 /check-ins?year=&month=
- * 无数据时显示空态；点击未打卡日期可触发 POST /check-ins（后端就绪后启用）。
+ * 打卡为「自动」：某天答满每日目标题量即自动视为已打卡，日历仅作展示。
  */
 
 export default function CheckinPage() {
@@ -14,16 +13,18 @@ export default function CheckinPage() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth()); // 0-based
   const [streak, setStreak] = useState<number | null>(null);
+  const [goal, setGoal] = useState<number>(10);
   const [checkedDays, setCheckedDays] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
     try {
-      const r = await api.get<any>('/check-ins', { params: { year, month: month + 1 } });
+      const r = await api.get<any>('/check-ins', { year, month: month + 1 });
       const days: number[] = Array.isArray(r?.days) ? r.days : [];
       setCheckedDays(new Set(days));
       setStreak(typeof r?.streak === 'number' ? r.streak : null);
+      if (typeof r?.goal === 'number' && r.goal > 0) setGoal(r.goal);
     } catch (e) {
       showError(e, '加载打卡数据失败');
       setCheckedDays(new Set());
@@ -47,17 +48,6 @@ export default function CheckinPage() {
   const goNext = () => {
     if (month === 11) { setYear(year + 1); setMonth(0); }
     else setMonth(month + 1);
-  };
-
-  const onCheckin = async (d: number) => {
-    if (checkedDays.has(d)) return;
-    try {
-      await api.post<any>('/check-ins', { date: `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}` });
-      await load();
-      Taro.showToast({ title: '打卡成功', icon: 'success' });
-    } catch (e) {
-      showError(e, '打卡失败');
-    }
   };
 
   return (
@@ -122,7 +112,6 @@ export default function CheckinPage() {
             return (
               <View
                 key={d}
-                onClick={() => onCheckin(d)}
                 style={{
                   width: '14.285%',
                   height: '88rpx',
@@ -150,7 +139,7 @@ export default function CheckinPage() {
 
       <View style={{ margin: '0 32rpx 80rpx' }}>
         <Text style={{ display: 'block', fontSize: '24rpx', color: 'var(--ink-mid)', textAlign: 'center' }}>
-          {loading ? '加载中…' : '点击未打卡日期可补打卡'}
+          {loading ? '加载中…' : `每日答满 ${goal} 题自动打卡`}
         </Text>
       </View>
     </ScrollView>

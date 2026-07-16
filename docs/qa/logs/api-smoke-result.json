@@ -1,0 +1,350 @@
+[
+  {
+    "method": "GET",
+    "path": "/health",
+    "expected": 200,
+    "status": 200,
+    "ms": 3.8,
+    "ok": true,
+    "payload_excerpt": {
+      "code": "OK",
+      "message": "healthy",
+      "data": {
+        "version": "1.0.0"
+      }
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/exam-catalog",
+    "expected": 200,
+    "status": 200,
+    "ms": 25.0,
+    "ok": true,
+    "payload_excerpt": {
+      "items": [
+        {
+          "id": 1,
+          "code": "EN",
+          "name": "英语",
+          "exams": [
+            {
+              "id": 1,
+              "code": "CET4",
+              "name": "大学英语",
+              "icon_url": null,
+              "question_count": 20,
+              "subjects": [
+                {
+                  "id": 3,
+                  "code": "SELECT",
+                  "name": "选择题",
+                  "question_count": 20,
+                  "chapters": []
+                },
+                {
+                  "id": 1,
+                  "code": "LISTENING",
+                  "name": "听力",
+                  "question_count": 0,
+                  "chapters": [
+                    {
+                      "id": 1,
+                      "code": "LONG_DIALOGUE",
+                      "name": "长对话",
+                      "question_count": 0,
+                      "knowledge_points": [
+                        {
+                          "id": 2,
+                          "code": "DETAIL",
+                          "name": "细节理解",
+                          "question_count": 0
+                        },
+                        {
+                          "id": 1,
+                          "code": "MAIN_IDEA",
+                          "name": "主旨判断",
+                          "question_count": 0
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "code": "GOV",
+          "name": "公务员考试",
+          "exams": [
+            {
+              "id": 2,
+              "code": "GONGSHI",
+              "name": "国家公务员考试",
+              "icon_url": null,
+              "question_count": 20,
+              "subjects": [
+                {
+                  "id": 2,
+                  "code": "XINGCE",
+                  "name": "行政职业能力测验",
+                  "question_count": 20,
+                  "chapters": [
+                    {
+                      "id": 2,
+                      "code": "XINGCE_GENERAL",
+                      "name": "行测综合",
+                      "question_count": 0,
+                      "knowledge_points": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/user/onboarding-status",
+    "expected": 200,
+    "status": 200,
+    "ms": 5.3,
+    "ok": true,
+    "payload_excerpt": {
+      "completed": true,
+      "snapshot": {
+        "purpose": "KEEP_FRESH",
+        "exam_id": 1,
+        "daily_goal": "STEADY",
+        "study_pace_minutes": 20
+      }
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/user/exam-targets",
+    "expected": 200,
+    "status": 200,
+    "ms": 4.7,
+    "ok": true,
+    "payload_excerpt": {
+      "items": [
+        {
+          "id": 6,
+          "exam_id": 1,
+          "exam_name": "大学英语",
+          "is_primary": true,
+          "daily_question_goal": 16,
+          "target_exam_date": null,
+          "purpose": "KEEP_FRESH",
+          "daily_goal": "STEADY",
+          "study_pace_minutes": 20
+        }
+      ]
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/progress/summary",
+    "expected": 200,
+    "status": 200,
+    "ms": 16.0,
+    "ok": true,
+    "payload_excerpt": {
+      "total_sessions": 9,
+      "total_answered": 3,
+      "last7_answer_count": 3,
+      "accuracy": 33,
+      "study_minutes": 30,
+      "streak_days": 0
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/practice-sessions/daily-task",
+    "expected": 200,
+    "status": 200,
+    "ms": 4.9,
+    "ok": true,
+    "payload_excerpt": {
+      "has_task": false,
+      "message": "今日暂无每日一练"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/wrong-questions",
+    "expected": 200,
+    "status": 200,
+    "ms": 5.3,
+    "ok": true,
+    "payload_excerpt": {
+      "items": [
+        {
+          "question_id": 36,
+          "wrong_count": 1,
+          "last_wrong_at": "2026-07-16T06:05:52.037538",
+          "next_review_at": "2026-07-17T06:05:52.037538",
+          "mastered": false,
+          "consecutive_correct": 0
+        },
+        {
+          "question_id": 31,
+          "wrong_count": 1,
+          "last_wrong_at": "2026-07-16T05:52:56.579905",
+          "next_review_at": "2026-07-17T05:52:56.579905",
+          "mastered": false,
+          "consecutive_correct": 0
+        }
+      ]
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/favorites",
+    "expected": 200,
+    "status": 200,
+    "ms": 5.7,
+    "ok": true,
+    "payload_excerpt": {
+      "items": []
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/auth/me",
+    "expected": 200,
+    "status": 200,
+    "ms": 3.1,
+    "ok": true,
+    "payload_excerpt": {
+      "id": 1,
+      "openid": "mock-mock-user-001",
+      "nickname": "测试用户",
+      "avatar_url": null,
+      "agreed_privacy_version": null,
+      "agreed_at": null
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/study-plan",
+    "expected": 200,
+    "status": 200,
+    "ms": 11.6,
+    "ok": true,
+    "payload_excerpt": {
+      "name": "大学英语 学习计划",
+      "range": "2026-07-16 ~ 2026-10-14",
+      "phases": [
+        {
+          "range": "2026-07-16 ~ 2026-07-30",
+          "title": "基础巩固",
+          "desc": "每日 16 题，节奏 20 分钟",
+          "done": false
+        },
+        {
+          "range": "2026-07-31 ~ 2026-08-30",
+          "title": "重点突破",
+          "desc": "针对错题和薄弱知识点",
+          "done": false
+        },
+        {
+          "range": "2026-08-31 ~ 2026-10-14",
+          "title": "冲刺模考",
+          "desc": "按真实考试节奏练习",
+          "done": false
+        }
+      ],
+      "subjects": [
+        {
+          "name": "听力",
+          "progress": 0,
+          "color": "#2563EB"
+        },
+        {
+          "name": "选择题",
+          "progress": 15,
+          "color": "#F8A800"
+        }
+      ]
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/notes",
+    "expected": 200,
+    "status": 200,
+    "ms": 3.3,
+    "ok": true,
+    "payload_excerpt": {
+      "items": []
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/check-ins",
+    "expected": 200,
+    "status": 200,
+    "ms": 5.1,
+    "ok": true,
+    "payload_excerpt": {
+      "days": [
+        16
+      ],
+      "streak": 1
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/check-ins",
+    "expected": 200,
+    "status": 200,
+    "ms": 10.9,
+    "ok": true,
+    "payload_excerpt": {
+      "ok": true,
+      "date": "2026-07-16",
+      "already": true
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/progress/weekly",
+    "expected": 200,
+    "status": 200,
+    "ms": 7.0,
+    "ok": true,
+    "payload_excerpt": {
+      "counts": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        17
+      ],
+      "start_date": "2026-07-10",
+      "end_date": "2026-07-16"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/user/onboarding-status",
+    "expected": 401,
+    "status": 401,
+    "ms": 2.0,
+    "ok": true,
+    "payload_excerpt": {
+      "code": "AUTH_REQUIRED",
+      "message": "AUTH_REQUIRED",
+      "request_id": "57d6aca363ac4069"
+    }
+  }
+]

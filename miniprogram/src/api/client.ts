@@ -40,6 +40,20 @@ async function request<T = any>(
     header: headers,
   });
   if (resp.statusCode >= 400) {
+    // 401 → 自动登出并跳转登录页（仅当前未在登录页时）
+    if (resp.statusCode === 401) {
+      try {
+        setToken(null);
+        Taro.removeStorageSync('user-info');
+        Taro.removeStorageSync('user-targets');
+        const pages = Taro.getCurrentPages?.() || [];
+        const top = pages[pages.length - 1];
+        if (!top || !String(top.route || '').includes('login')) {
+          Taro.showToast({ title: '登录已过期，请重新登录', icon: 'none' });
+          setTimeout(() => Taro.reLaunch({ url: '/pages/login/index' }), 600);
+        }
+      } catch {}
+    }
     const data: any = resp.data || {};
     const msg = data.message || data.code || `HTTP ${resp.statusCode}`;
     throw new Error(msg);

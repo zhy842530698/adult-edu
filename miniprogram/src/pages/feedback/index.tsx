@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text } from '@tarojs/components';
+import { View, Text, Textarea } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import { api } from '../../api/client';
 import { showError } from '../../utils/format';
@@ -87,12 +87,12 @@ export default function FeedbackPage() {
           padding: '24rpx',
           marginTop: '16rpx',
         }}>
-          <textarea
+          <Textarea
             value={content}
             onInput={(e: any) => setContent(e.detail.value)}
             placeholder="请详细描述问题，便于我们改进"
             style={{ width: '100%', minHeight: '240rpx', background: 'transparent', fontSize: '28rpx' }}
-            maxLength={500}
+            maxlength={500}
           />
         </View>
         <Text className="tip" style={{ display: 'block', textAlign: 'right', marginTop: 12 }}>

@@ -1,0 +1,72 @@
+[
+  {
+    "endpoint": "GET /study-plan",
+    "status": 200,
+    "ok": true,
+    "has_phases": true,
+    "has_subjects": true,
+    "name": "大学英语 学习计划"
+  },
+  {
+    "endpoint": "GET /notes (empty)",
+    "status": 200,
+    "ok": true,
+    "items": 0
+  },
+  {
+    "endpoint": "POST /notes",
+    "status": 200,
+    "ok": 3,
+    "id": 3
+  },
+  {
+    "endpoint": "GET /check-ins",
+    "status": 200,
+    "ok": true,
+    "days_before": 1,
+    "streak": 1
+  },
+  {
+    "endpoint": "POST /check-ins (today)",
+    "status": 200,
+    "ok": true,
+    "already": true
+  },
+  {
+    "endpoint": "POST /check-ins (idempotent)",
+    "status": 200,
+    "ok": true
+  },
+  {
+    "endpoint": "POST /check-ins (bad format)",
+    "status": 422,
+    "ok": true
+  },
+  {
+    "endpoint": "GET /check-ins (after)",
+    "status": 200,
+    "ok": false,
+    "days_after": 1,
+    "delta": 0
+  },
+  {
+    "endpoint": "GET /progress/weekly",
+    "status": 200,
+    "ok": true,
+    "counts": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      23
+    ]
+  },
+  {
+    "endpoint": "POST /wrong-questions/{id}/remove",
+    "status": 200,
+    "ok": true,
+    "removed": true
+  }
+]

@@ -51,8 +51,14 @@ export default function HomePage() {
     try {
       const s = await api.post<any>('/practice-sessions', body);
       Taro.navigateTo({ url: `/pages/practice/session?id=${s.id}` });
-    } catch (e) {
-      showError(e, '创建会话失败');
+    } catch (e: any) {
+      // 容错 shim：旧前端命中后端 POOL_COMPLETED 错误时给个友好提示。
+      const msg = (e && (e.message || e.errMsg)) || '';
+      if (msg.includes('已通关')) {
+        Taro.showToast({ title: '题库已通关 🎉', icon: 'none' });
+      } else {
+        showError(e, '创建会话失败');
+      }
     }
   };
 
@@ -114,15 +120,17 @@ export default function HomePage() {
 
       {/* 每日打卡 渐变卡 */}
       <View style={{ margin: '24rpx 32rpx' }}>
-        <View style={{
-          background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
-          borderRadius: '24rpx',
-          padding: '32rpx',
-          display: 'flex',
-          alignItems: 'center',
-          color: '#fff',
-          boxShadow: '0 8rpx 24rpx rgba(37,99,235,0.25)',
-        }}>
+        <View
+          onClick={() => Taro.navigateTo({ url: '/pages/study/checkin' })}
+          style={{
+            background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+            borderRadius: '24rpx',
+            padding: '32rpx',
+            display: 'flex',
+            alignItems: 'center',
+            color: '#fff',
+            boxShadow: '0 8rpx 24rpx rgba(37,99,235,0.25)',
+          }}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: '#fff', fontSize: '32rpx', fontWeight: 600 }}>每日打卡</Text>
             <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: '24rpx', marginTop: 8 }}>
@@ -137,7 +145,7 @@ export default function HomePage() {
               fontSize: '24rpx',
               fontWeight: 600,
               display: 'inline-block',
-            }}>打卡</View>
+            }}>查看日历</View>
           </View>
           <Illustration kind="gift" size={160} />
         </View>
@@ -178,7 +186,10 @@ export default function HomePage() {
       }}>
         <View className="row-between" style={{ marginBottom: 16 }}>
           <Text style={{ fontSize: '30rpx', fontWeight: 600, color: 'var(--ink-deep)' }}>学习数据</Text>
-          <Text style={{ fontSize: '22rpx', color: 'var(--ink-mid)' }}>查看全部 ›</Text>
+          <Text
+            onClick={() => Taro.navigateTo({ url: '/pages/learn/report' })}
+            style={{ fontSize: '22rpx', color: 'var(--ink-mid)' }}
+          >查看全部 ›</Text>
         </View>
         <View style={{ display: 'flex' }}>
           {[
@@ -204,6 +215,11 @@ export default function HomePage() {
           && ls.mode === 'SEQUENTIAL'
           && ls.exam_id === primary.exam_id
           && ls.status !== 'SUBMITTED';
+        // 三态优先级：未交卷 → 继续；已通关 → 重新练习（清 cursor 从头开始）；其余 → 新一轮
+        const isPoolComplete = !!primary?.exam_id
+          && (progress?.pool_size ?? 0) > 0
+          && (progress?.total_answered ?? 0) >= (progress?.pool_size ?? 0);
+        const showPoolDone = !canResume && isPoolComplete;
         return (
         <View style={{
           margin: '0 32rpx 32rpx',
@@ -215,19 +231,21 @@ export default function HomePage() {
           <View className="row-between">
             <View style={{ flex: 1, marginRight: 12 }}>
               <Text style={{ fontSize: '24rpx', color: 'var(--ink-mid)' }}>
-                {canResume ? '继续上次练习' : '继续练习'}
+                {canResume ? '继续上次练习' : showPoolDone ? '题库已通关' : '继续练习'}
               </Text>
               <Text style={{ fontSize: '28rpx', fontWeight: 600, color: 'var(--ink-deep)', marginTop: 4, display: 'block' }}>
                 {primary?.exam_name || '请先设置目标考试'}
               </Text>
               <Text style={{ fontSize: '22rpx', color: 'var(--ink-soft)', marginTop: 4, display: 'block' }}>
-                {!ls
-                  ? '开始今日练习'
-                  : canResume && ls.last_sequence_no
-                    ? `上次做到第 ${ls.last_sequence_no} / ${ls.total_questions || '?'} 题`
-                    : ls.chapter_name
-                      ? `上次：${ls.chapter_name}`
-                      : `上次：${ls.mode} · ${ls.status === 'SUBMITTED' ? '已完成' : '进行中'}`}
+                {showPoolDone
+                  ? '已通关全部题目 🎉 错题会自动收录在错题本'
+                  : !ls
+                    ? '开始今日练习'
+                    : canResume && ls.last_sequence_no
+                      ? `上次做到第 ${ls.last_sequence_no} / ${ls.total_questions || '?'} 题`
+                      : ls.chapter_name
+                        ? `上次：${ls.chapter_name}`
+                        : `上次：${ls.mode} · ${ls.status === 'SUBMITTED' ? '已完成' : '进行中'}`}
               </Text>
             </View>
             <View
@@ -240,8 +258,12 @@ export default function HomePage() {
                 fontWeight: 600,
                 flexShrink: 0,
               }}
-              onClick={() => goSession({ mode: 'SEQUENTIAL', count: 10, exam_id: primary.exam_id })}
-            >{canResume ? '继续' : '继续练习'}</View>
+              onClick={
+                showPoolDone
+                  ? () => goSession({ mode: 'SEQUENTIAL', count: 10, exam_id: primary.exam_id, restart: true })
+                  : () => goSession({ mode: 'SEQUENTIAL', count: 10, exam_id: primary.exam_id })
+              }
+            >{canResume ? '继续' : showPoolDone ? '重新练习' : '继续练习'}</View>
           </View>
           <View style={{ marginTop: 20 }}>
             {/* 题库总进度：已刷（去重） / 题库总数 */}
@@ -258,19 +280,6 @@ export default function HomePage() {
         </View>
         );
       })()}
-          <View style={{ marginTop: 20 }}>
-            <ProgressBar percent={progress?.progress_percent ?? 0} />
-            <View className="row-between" style={{ marginTop: 8 }}>
-              <Text style={{ fontSize: '22rpx', color: 'var(--ink-soft)' }}>
-                今日已完成 {progress?.today_count ?? 0} / {primary?.daily_question_goal ?? '—'} 题
-              </Text>
-              <Text style={{ fontSize: '22rpx', color: 'var(--brand)', fontWeight: 600 }}>
-                {progress?.progress_percent ?? 0}%
-              </Text>
-            </View>
-          </View>
-        </View>
-      )}
 
       {/* 无目标时给入口 */}
       {!primary && (

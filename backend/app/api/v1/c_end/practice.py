@@ -44,6 +44,7 @@ class CreateSessionReq(BaseModel):
     chapter_id: int | None = None
     knowledge_point_id: int | None = None
     paper_id: int | None = None
+    restart: bool = Field(False, description="SEQUENTIAL 已通关时：清掉 cursor 从头开始；其余模式忽略")
 
 
 @router.post("")
@@ -79,6 +80,7 @@ def create(
         chapter_id=payload.chapter_id,
         knowledge_point_id=payload.knowledge_point_id,
         paper_id=payload.paper_id,
+        restart=payload.restart,
     )
     # 答案仅在交卷后才返回，避免提前泄露（前端也按 status === 'SUBMITTED' 来 reveal）
     return session_to_dict(db, sess, reveal_answers=sess.status == "SUBMITTED")

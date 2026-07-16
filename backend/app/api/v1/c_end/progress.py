@@ -35,9 +35,14 @@ def summary(db: Session = Depends(get_db), user: User = Depends(resolve_user)):
         .join(PracticeSession, PracticeSession.id == UserAnswer.session_id)
         .where(PracticeSession.user_id == user.id)
     ).scalar() or 0
+    # 7 天内实际作答的去重题数：同一题多次作答只算一次，避免错题重做/顺序练习回绕
+    # 把"重复刷"的题反复计入。
     last7 = db.execute(
-        select(func.coalesce(func.sum(UserDailyStat.answer_count), 0)).where(
-            UserDailyStat.user_id == user.id, UserDailyStat.stat_date >= datetime.utcnow().date() - timedelta(days=7)
+        select(func.count(func.distinct(UserAnswer.question_version_id)))
+        .join(PracticeSession, PracticeSession.id == UserAnswer.session_id)
+        .where(
+            PracticeSession.user_id == user.id,
+            UserAnswer.answered_at >= datetime.utcnow() - timedelta(days=7),
         )
     ).scalar() or 0
 
