@@ -26,6 +26,7 @@ dist/
 
 # Secrets (keep .env.example)
 .env
+.env.local
 *.local.env
 
 # Uploads (keep dir, ignore files)

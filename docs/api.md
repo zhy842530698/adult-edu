@@ -1,6 +1,6 @@
 # API 文档
 
-完整 OpenAPI 文档：启动后端后访问 `http://127.0.0.1:8000/docs`。
+完整 OpenAPI 文档：启动后端后访问 `http://192.168.1.2:8000/docs`（公网优先 + hairpin 自检降级，详见 `scripts/local_ip.sh`）。
 
 ## 通用约定
 

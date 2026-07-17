@@ -60,6 +60,14 @@ export default function SessionPage() {
         { selected_options: opts, time_spent_seconds: elapsed },
         { idempotencyKey: `sess-${id}-q-${qv}-${mySeq}-${Date.now()}` },
       );
+      // 后端落库成功，清掉对应的本地兜底缓存
+      try {
+        const m = Taro.getStorageSync(`practice:${id}`) as Record<number, string[]> | undefined;
+        if (m && m[qv] !== undefined) {
+          delete m[qv];
+          Taro.setStorageSync(`practice:${id}`, m);
+        }
+      } catch {}
       // 静默刷新会话，让答题卡更新已答状态
       if (mySeq === saveSeqRef.current) {
         const fresh = await api.get<any>(`/practice-sessions/${id}`);
@@ -76,7 +84,47 @@ export default function SessionPage() {
   useEffect(() => {
     if (!getToken()) { Taro.redirectTo({ url: '/pages/login/index' }); return; }
     if (!id) { Taro.showToast({ title: '缺少会话ID', icon: 'none' }); return; }
-    api.get<any>(`/practice-sessions/${id}`).then(setSess);
+    const cacheKey = `practice:${id}`;
+    const reconcileCache = (fresh: any) => {
+      // 兜底：本地缓存里有但服务端没记录的答案（断网/被回收场景），逐题补提交
+      try {
+        const cache = (Taro.getStorageSync(cacheKey) || {}) as Record<number, string[]>;
+        const serverMap: Record<number, string[]> = {};
+        (fresh?.items || []).forEach((it: any) => {
+          if (it.question_version_id != null) {
+            serverMap[it.question_version_id] = it.selected_options || [];
+          }
+        });
+        const stillDirty: Record<number, string[]> = {};
+        Object.entries(cache).forEach(([qvStr, opts]) => {
+          if (!opts?.length) return;
+          const qv = Number(qvStr);
+          const server = JSON.stringify([...(serverMap[qv] || [])].sort());
+          const local = JSON.stringify([...opts].sort());
+          if (server === local) return; // 一致，丢弃
+          stillDirty[qv] = opts;
+          // 补提交：不走 flushSave，避免污染组件 dirty/seq 状态
+          api.put(
+            `/practice-sessions/${id}/answers/${qv}`,
+            { selected_options: opts, time_spent_seconds: 0 },
+            { idempotencyKey: `sess-${id}-q-${qv}-recover-${Date.now()}` },
+          ).then(() => {
+            try {
+              const m = Taro.getStorageSync(cacheKey) as Record<number, string[]> | undefined;
+              if (m && m[qv] !== undefined) {
+                delete m[qv];
+                Taro.setStorageSync(cacheKey, m);
+              }
+            } catch {}
+          }).catch(() => { /* 留到下次 reconcile */ });
+        });
+        Taro.setStorageSync(cacheKey, stillDirty);
+      } catch {}
+    };
+    api.get<any>(`/practice-sessions/${id}`).then((fresh) => {
+      setSess(fresh);
+      reconcileCache(fresh);
+    });
   }, [id]);
 
   const q: QuestionBlock | undefined = sess?.items?.[idx];
@@ -104,6 +152,12 @@ export default function SessionPage() {
     setSelected(next);
     pendingRef.current = next;
     // 这里不重写 currentQvRef —— 切题/交卷才需要重置 timer，见 resetTimer
+    // 本地兜底缓存：webview 被回收 / 网络挂了也能从 storage 恢复
+    try {
+      const m = (Taro.getStorageSync(`practice:${id}`) || {}) as Record<number, string[]>;
+      m[q.question_version_id] = next;
+      Taro.setStorageSync(`practice:${id}`, m);
+    } catch {}
     dirtyRef.current = true;
     // 防抖 500ms 再调保存接口（多选时连点也只发一次）
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);

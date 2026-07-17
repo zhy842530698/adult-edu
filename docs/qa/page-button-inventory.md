@@ -2,7 +2,7 @@
 
 > **测试基准**
 > - Git commit: `e28d22547d0c52300c1d6935f3e11becbbc4477e`（fix miniprogram）
-> - 后端: FastAPI @ `http://127.0.0.1:8000/api/v1`
+> - 后端: FastAPI @ `http://192.168.1.2:8000/api/v1`
 > - 小程序: Taro 3 + React + TS @ `miniprogram/`
 > - 生成时间: 2026-07-16
 > - 统计: 19 个页面，111 个交互元素（按钮 / 卡片 / 列表项 / Tab / 表单控件 / 弹窗确认 / TabBar 等）

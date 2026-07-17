@@ -3,7 +3,7 @@
 # 覆盖需求文档 §14 的 20 项验收要点。
 set -e
 
-BASE=${BASE:-http://127.0.0.1:8000/api/v1}
+BASE=${BASE:-http://192.168.1.2:8000/api/v1}
 ADMIN_USER=${ADMIN_USER:-admin}
 ADMIN_PASS=${ADMIN_PASS:-Admin@123}
 JQ=${JQ:-jq}

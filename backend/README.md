@@ -95,13 +95,13 @@ python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 | `admin_default_password` | `Admin@123` | 种子超管初始密码 |
 | `upload_dir` | `backend/uploads` | 上传根目录 |
 | `static_url_prefix` | `/static` | FastAPI 静态文件挂载前缀 |
-| `cors_origins` | `http://localhost:5173, http://127.0.0.1:5173` | CORS 白名单 |
+| `cors_origins` | `http://localhost:5173, http://127.0.0.1:5173, http://192.168.1.2:5173` | CORS 白名单 |
 
 ## 全局行为
 
 - **请求 ID**：每个请求自动生成 / 透传 `X-Request-Id`，写入日志与响应头。
 - **统一响应**：`{"code": "OK", "message": "...", "data": ...}`；错误由 `errors.install_handlers` 包装为 `{"code", "message", "request_id"}`。
-- **CORS**：默认允许 `localhost:5173`；扩展需改 `cors_origins`。
+- **CORS**：默认允许 `localhost:5173`、`127.0.0.1:5173`、本机 LAN IP `192.168.1.2:5173`；扩展需改 `cors_origins`。
 - **静态文件**：`uploads/` 目录通过 `/static` 直接对外访问。
 - **JWT**：`Authorization: Bearer <token>`，payload 含 `sub_type`（`USER` / `ADMIN`）、`sub_id`、`iat`、`exp`。
 - **幂等键**：保存答案 / 交卷 / 导入确认 / 发布 等写接口支持 `Idempotency-Key` 头，`IdempotencyKey` 表持久化。

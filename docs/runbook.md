@@ -26,9 +26,9 @@ make mp
 
 | 服务 | 地址 | 说明 |
 |---|---|---|
-| FastAPI | http://127.0.0.1:8000 | REST API |
-| Swagger | http://127.0.0.1:8000/docs | OpenAPI 交互文档 |
-| 运营后台 | http://127.0.0.1:5173 | Vite dev server，已代理 `/api` `/static` 到 8000 |
+| FastAPI | http://192.168.1.2:8000 | REST API（本机 LAN IP，公网优先 + hairpin 自检降级，详见 `scripts/local_ip.sh`） |
+| Swagger | http://192.168.1.2:8000/docs | OpenAPI 交互文档 |
+| 运营后台 | http://192.168.1.2:5173 | Vite dev server，已代理 `/api` `/static` 到 8000 |
 | 小程序 | 微信开发者工具 | 编译产物 `miniprogram/dist` |
 
 ## 默认账号
@@ -49,7 +49,7 @@ JWT_EXPIRE_MIN=7200
 ADMIN_DEFAULT_PASSWORD=Admin@123
 UPLOAD_DIR=./uploads
 STATIC_URL_PREFIX=/static
-CORS_ORIGINS=["http://localhost:5173","http://127.0.0.1:5173"]
+CORS_ORIGINS=["http://localhost:5173","http://127.0.0.1:5173","http://192.168.1.2:5173"]
 REVIEW_SELF_APPROVE_ALLOWED=false
 WECHAT_APPID=微信小程序AppID
 WECHAT_SECRET=微信小程序AppSecret
@@ -86,8 +86,9 @@ make clean
 `miniprogram/project.config.json` 中的 `appid` 一致。未配置微信凭据时登录会明确返回 401，
 不会再把 code 或 mock 字符串当作 openid。
 
-真机调试时，API 地址不能使用 `127.0.0.1`；设置 `TARO_APP_API_BASE` 为手机可访问的
-HTTPS 后端地址，并在微信公众平台配置 request 合法域名。
+真机调试时，API 地址不能使用 `127.0.0.1`（手机端无法解析到本机）。默认配置已是 LAN IP `192.168.1.2`；
+若手机与后端不在同一 LAN，可用 `TARO_APP_API_BASE` 覆盖为公网域名或隧道地址，
+并在微信公众平台配置 request 合法域名。
 
 ## 常见问题
 

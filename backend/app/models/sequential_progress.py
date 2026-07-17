@@ -8,6 +8,7 @@ restarting from the first row of the question bank.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
@@ -34,7 +35,7 @@ class UserSequentialProgress(Base):
     scope: Mapped[str] = mapped_column(String(16), nullable=False)
     # exam.id / chapter.id / knowledge_point.id / paper.id depending on scope
     scope_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    last_question_id: Mapped[int | None] = mapped_column(
+    last_question_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("questions.id"), nullable=True
     )
     updated_at: Mapped[datetime] = mapped_column(

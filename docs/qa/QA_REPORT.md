@@ -37,7 +37,7 @@
 | Python | 3.13.5 (via .venv) |
 | Node.js | v22.22.0 |
 | npm | 10.9.4 |
-| 后端 | FastAPI @ `http://127.0.0.1:8000/api/v1` |
+| 后端 | FastAPI @ `http://192.168.1.2:8000/api/v1` |
 | 数据库 | SQLite (`backend/adult_edu.db`) |
 | 小程序框架 | Taro 3.6.7 + React 18 + TypeScript 5.1 |
 | 构建目标 | weapp + h5（均成功） |

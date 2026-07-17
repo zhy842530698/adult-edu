@@ -1,0 +1,72 @@
+
+> adult-edu-miniprogram@1.0.0 dev:weapp
+> npm run build:weapp -- --watch
+
+
+> adult-edu-miniprogram@1.0.0 build:weapp
+> taro build --type weapp --watch
+
+👽 Taro v3.6.7
+
+Tips:
+1. 预览模式生成的文件较大，设置 NODE_ENV 为 production 可以开启压缩。
+Example:
+$ NODE_ENV=production taro build --type weapp --watch
+2. 建议开启持久化缓存功能，能有效提升二次编译速度，详情请参考: https://docs.taro.zone/docs/config-detail#cache。
+
+
+
+● Webpack █████████████████████████ setup (3%)  
+ watch run
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+● Webpack █████████████████████████ building (10%) 0/23 entries 23/23 dependen
+cies 0/23 modules 1 active 
+ babel-loader › src/app.config.ts
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+● Webpack █████████████████████████ building (12%) 1/23 entries 23/23 dependen
+cies 1/23 modules 22 active 
+ ...l-loader › node_modules/@tarojs/webpack5-runner/dist/template/custom-wrapp
+er.js
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+● Webpack █████████████████████████ building (12%) 1/23 entries 174/256 depend
+encies 1/55 modules 43 active 
+ node_modules/react/cjs/react.production.min.js
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+● Webpack █████████████████████████ building (12%) 1/23 entries 174/257 depend
+encies 1/55 modules 49 active 
+ babel-loader › src/api/client.ts
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+● Webpack █████████████████████████ building (12%) 1/23 entries 218/315 depend
+encies 4/59 modules 55 active 
+ css-loader › postcss-loader › src/app.css
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+● Webpack █████████████████████████ building (12%) 1/23 entries 306/330 depend
+encies 6/74 modules 63 active 
+ ...adult_edu/miniprogram/node_modules/@babel/runtime/helpers/esm/defineProper
+ty.js
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+● Webpack █████████████████████████ building (12%) 1/23 entries 365/366 depend
+encies 44/101 modules 57 active 
+ babel-loader › node_modules/@tarojs/api/dist/index.esm.js
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+● Webpack █████████████████████████ sealing (70%)  
+ plugins
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+● Webpack █████████████████████████ emitting (98%)  
+ after emit
+
+[2K[1A[2K[1A[2K[1A[2K[1A[2K[G
+✔ Webpack
+  Compiled successfully in 1.58s
+
+→ Watching... [7/16/2026, 11:36:42 PM]
+

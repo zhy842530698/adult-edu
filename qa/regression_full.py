@@ -18,7 +18,7 @@ from app.core.security import create_access_token
 from app.database import SessionLocal
 from app.models import User
 
-BASE = "http://127.0.0.1:8000/api/v1"
+BASE = os.environ.get("BASE", "http://192.168.1.2:8000/api/v1")
 OUT = Path(__file__).resolve().parent.parent / "docs" / "qa" / "logs" / "regression-full.json"
 OUT.parent.mkdir(parents=True, exist_ok=True)
 

@@ -91,7 +91,7 @@ miniprogram/
 
 ## API 对接
 
-所有请求统一指向 `process.env.TARO_APP_API_BASE || 'http://127.0.0.1:8000/api/v1'`：
+所有请求统一指向 `process.env.TARO_APP_API_BASE || 'http://192.168.1.2:8000/api/v1'`：
 
 | 业务 | 主要端点 |
 |---|---|
@@ -105,7 +105,7 @@ miniprogram/
 | 进度 / 互动 | `GET /progress/summary`、`GET /study-plan`、`GET/POST /notes`、`GET/POST /check-ins`、`GET /progress/weekly` |
 | 反馈 | `POST /question-feedback` |
 
-完整接口定义参见 [`backend/README.md`](../backend/README.md) 与 `http://localhost:8000/docs`。
+完整接口定义参见 [`backend/README.md`](../backend/README.md) 与 `http://192.168.1.2:8000/docs`。
 
 ## 运行与构建
 
@@ -134,7 +134,7 @@ npm run build:h5      # H5 产物输出到 ../dist-h5
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `TARO_APP_API_BASE` | `http://127.0.0.1:8000/api/v1` | 后端 API 前缀。生产可改为 HTTPS 域名 |
+| `TARO_APP_API_BASE` | `http://192.168.1.2:8000/api/v1` | 后端 API 前缀。本机 IP 不同时用 `bash scripts/local_ip.sh` 探测后覆盖；生产改 HTTPS 域名 |
 
 > 微信小程序要求线上域名走 HTTPS 并加入「开发者后台」request 合法域名列表；本地开发期可在「详情 → 本地设置」勾选「不校验合法域名」。
 

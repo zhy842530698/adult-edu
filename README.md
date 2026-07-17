@@ -41,10 +41,12 @@ make verify
 
 | 服务 | 地址 | 说明 |
 |---|---|---|
-| FastAPI | http://127.0.0.1:8000 | REST API |
-| Swagger | http://127.0.0.1:8000/docs | OpenAPI 交互文档 |
-| 运营后台 | http://127.0.0.1:5173 | Vite dev server，已代理 `/api/v1`、`/static` 到 8000 |
+| FastAPI | http://192.168.1.2:8000 | REST API（本机 LAN IP，公网优先 + hairpin 自检降级，详见 `scripts/local_ip.sh`） |
+| Swagger | http://192.168.1.2:8000/docs | OpenAPI 交互文档 |
+| 运营后台 | http://192.168.1.2:5173 | Vite dev server，已代理 `/api/v1`、`/static` 到 8000 |
 | 小程序 | 微信开发者工具 | 编译产物 `miniprogram/dist`，需要在 IDE 中点「编译」 |
+
+> **本机 IP 不是 192.168.1.2？** 跑 `bash scripts/local_ip.sh` 探测实际 IP，然后替换 `backend/app/config.py`（CORS）、`miniprogram/config/index.ts` 与 `miniprogram/src/api/client.ts`（API baseURL）、`admin-web/vite.config.ts`（proxy）里的硬编码；小程序/QA 脚本也可用 `TARO_APP_API_BASE` / `BASE` 环境变量覆盖。
 
 ## Makefile 命令一览
 

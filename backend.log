@@ -1,6 +1,55 @@
-INFO:     Started server process [48831]
+INFO:     Started server process [50923]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000): address already in use
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     192.168.1.2:51457 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     192.168.1.2:62757 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     192.168.1.2:54583 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     192.168.1.2:54585 - "GET /static/whatever-not-found HTTP/1.1" 404 Not Found
+INFO:     192.168.1.11:47404 - "POST /api/v1/auth/wechat/login HTTP/1.1" 200 OK
+INFO:     192.168.1.11:47404 - "GET /api/v1/user/onboarding-status HTTP/1.1" 200 OK
+INFO:     192.168.1.11:47404 - "GET /api/v1/user/exam-targets HTTP/1.1" 200 OK
+INFO:     192.168.1.11:47416 - "GET /api/v1/practice-sessions/daily-task HTTP/1.1" 200 OK
+INFO:     192.168.1.11:47416 - "GET /api/v1/progress/summary HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38096 - "GET /api/v1/progress/weekly HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38082 - "GET /api/v1/progress/summary HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38096 - "GET /api/v1/practice-sessions/daily-task HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38082 - "GET /api/v1/user/exam-targets HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38082 - "GET /api/v1/progress/summary HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38082 - "GET /api/v1/practice-sessions/daily-task HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38082 - "GET /api/v1/exam-catalog HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38082 - "GET /api/v1/user/exam-targets HTTP/1.1" 200 OK
+INFO:     192.168.1.11:39798 - "GET /api/v1/practice-sessions/daily-task HTTP/1.1" 200 OK
+INFO:     192.168.1.11:39798 - "GET /api/v1/progress/summary HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38288 - "GET /api/v1/user/exam-targets HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "GET /api/v1/practice-sessions/daily-task HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "GET /api/v1/progress/summary HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "POST /api/v1/practice-sessions HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "GET /api/v1/practice-sessions/2 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "PUT /api/v1/practice-sessions/2/answers/17 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "GET /api/v1/practice-sessions/2 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "PUT /api/v1/practice-sessions/2/answers/18 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "GET /api/v1/practice-sessions/2 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "PUT /api/v1/practice-sessions/2/answers/19 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "GET /api/v1/practice-sessions/2 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "PUT /api/v1/practice-sessions/2/answers/20 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "GET /api/v1/practice-sessions/2 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "PUT /api/v1/practice-sessions/2/answers/20 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "GET /api/v1/practice-sessions/2 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "PUT /api/v1/practice-sessions/2/answers/21 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "GET /api/v1/practice-sessions/2 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "PUT /api/v1/practice-sessions/2/answers/22 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "GET /api/v1/practice-sessions/2 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "PUT /api/v1/practice-sessions/2/answers/23 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "GET /api/v1/practice-sessions/2 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "PUT /api/v1/practice-sessions/2/answers/7 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "GET /api/v1/practice-sessions/2 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "PUT /api/v1/practice-sessions/2/answers/8 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "GET /api/v1/practice-sessions/2 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "PUT /api/v1/practice-sessions/2/answers/9 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "GET /api/v1/practice-sessions/2 HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "POST /api/v1/practice-sessions/2/submit HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "GET /api/v1/practice-sessions/2/result HTTP/1.1" 200 OK
+INFO:     192.168.1.11:38294 - "GET /api/v1/user/exam-targets HTTP/1.1" 200 OK
+INFO:     192.168.1.11:39988 - "GET /api/v1/practice-sessions/daily-task HTTP/1.1" 200 OK
+INFO:     192.168.1.11:39988 - "GET /api/v1/progress/summary HTTP/1.1" 200 OK
